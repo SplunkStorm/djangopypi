@@ -73,6 +73,9 @@ def submit_package_or_release(user, post_data, files):
 def register_or_upload(request):
     if request.method != 'POST':
         return HttpResponseBadRequest('Only post requests are supported')
+
+    if not 'djangopypi.add_package' in request.user.get_all_permissions():
+        return HttpResponseForbidden('User not permitted to upload new packages.')
     
     name = request.POST.get('name',None).strip()
     
@@ -161,6 +164,7 @@ def register_or_upload(request):
     transaction.commit()
     
     return HttpResponse('upload accepted')
+
 
 def list_classifiers(request, mimetype='text/plain'):
     response = HttpResponse(mimetype=mimetype)
