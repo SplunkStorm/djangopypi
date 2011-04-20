@@ -90,10 +90,11 @@ def register_or_upload(request):
         
         return HttpResponseForbidden('You are not an owner/maintainer of %s' % (package.name,))
     
+    version = request.POST.get('version',None).strip()    
+    
     release, created = Release.objects.get_or_create(package=package,
                                                      version=version)
-    
-    version = request.POST.get('version',None).strip()
+        
     metadata_version = request.POST.get('metadata_version', None)
 
     if not metadata_version:
