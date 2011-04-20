@@ -67,6 +67,15 @@ your ``~/.pypirc`` file::
     password:secret
     repository:http://localhost:8000/pypi
 
+Uploading a package
+___________________
+
+Before a user can upload a package they must be granted permission to do
+so. In the admin interface assign the user the djangopypi.add_package
+permission.
+
+Failure to do so will give a 403 when uploading
+
 Uploading a package: Python >=2.6
 _________________________________
 
