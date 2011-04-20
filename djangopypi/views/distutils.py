@@ -69,7 +69,7 @@ def submit_package_or_release(user, post_data, files):
     return HttpResponse()
 
 @basic_auth
-@transaction.commit_manually
+@transaction.autocommit
 def register_or_upload(request):
     if request.method != 'POST':
         return HttpResponseBadRequest('Only post requests are supported')
