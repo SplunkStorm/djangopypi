@@ -3,7 +3,7 @@ import os
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpResponseForbidden, HttpResponseBadRequest, \
-                        HttpResponse, UPLOAD_TO
+                        HttpResponse
 from django.utils.translation import ugettext_lazy as _
 from django.utils.datastructures import MultiValueDict
 
@@ -39,7 +39,7 @@ def submit_package_or_release(user, post_data, files):
             try:
                 release = Release.objects.get(version=post_data['version'],
                                               package=package,
-                                              distribution=UPLOAD_TO + '/' +
+                                              distribution=settings.DJANGOPYPI_RELEASE_UPLOAD_TO + '/' +
                                               files['distribution']._name)
                 if not allow_overwrite:
                     return HttpResponseForbidden(ALREADY_EXISTS_FMT % (
