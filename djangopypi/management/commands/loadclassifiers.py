@@ -9,7 +9,6 @@ to choose if you have to modify package data. Use it if you need it.
 
 from __future__ import with_statement
 import urllib
-import os.path
 
 from django.core.management.base import BaseCommand
 from djangopypi.models import Classifier

@@ -1,12 +1,12 @@
 import os
-from django.conf import settings
+
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django.utils import simplejson as json
 from django.utils.datastructures import MultiValueDict
 from django.contrib.auth.models import User
 
-
+from djangopypi import conf
 
 class PackageInfoField(models.Field):
     description = u'Python Package Information Field'
@@ -132,12 +132,12 @@ class Release(models.Model):
 class Distribution(models.Model):
     release = models.ForeignKey(Release, related_name="distributions",
                                 editable=False)
-    content = models.FileField(upload_to=settings.DJANGOPYPI_RELEASE_UPLOAD_TO)
+    content = models.FileField(upload_to=conf.RELEASE_UPLOAD_TO)
     md5_digest = models.CharField(max_length=32, blank=True, editable=False)
     filetype = models.CharField(max_length=32, blank=False,
-                                choices=settings.DJANGOPYPI_DIST_FILE_TYPES)
+                                choices=conf.DIST_FILE_TYPES)
     pyversion = models.CharField(max_length=16, blank=True,
-                                 choices=settings.DJANGOPYPI_PYTHON_VERSIONS)
+                                 choices=conf.PYTHON_VERSIONS)
     comment = models.CharField(max_length=255, blank=True)
     signature = models.TextField(blank=True)
     created = models.DateTimeField(auto_now_add=True, editable=False)
@@ -149,7 +149,7 @@ class Distribution(models.Model):
 
     @property
     def display_filetype(self):
-        for key,value in settings.DJANGOPYPI_DIST_FILE_TYPES:
+        for key,value in conf.DIST_FILE_TYPES:
             if key == self.filetype:
                 return value
         return self.filetype

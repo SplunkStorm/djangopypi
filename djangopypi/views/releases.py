@@ -1,16 +1,15 @@
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.forms.models import inlineformset_factory
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404
 from django.views.generic import list_detail, create_update
 from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
 
-from djangopypi.decorators import user_owns_package, user_maintains_package
+from djangopypi import conf
+from djangopypi.decorators import user_maintains_package
 from djangopypi.models import Package, Release, Distribution
 from djangopypi.forms import ReleaseForm, DistributionUploadForm
-
-
 
 def index(request, **kwargs):
     kwargs.setdefault('template_object_name','release')
@@ -69,13 +68,17 @@ def manage_metadata(request, package, version, **kwargs):
         raise Http404('Version %s does not exist for %s' % (version,
                                                             package,))
     
-    if not release.metadata_version in settings.DJANGOPYPI_METADATA_FORMS:
+    if not release.metadata_version in conf.METADATA_FORMS:
         #TODO: Need to change this to a more meaningful error
-        raise Http404()
+        raise Http404('Metadata Version is not supported')
     
     kwargs['extra_context'][kwargs['template_object_name']] = release
     
-    form_class = settings.DJANGOPYPI_METADATA_FORMS.get(release.metadata_version)
+    form_class = conf.METADATA_FORMS[release.metadata_version]
+    if isinstance(form_class, basestring):
+        app_module, class_name = form_class.rsplit('.', 1)
+        form_class = getattr(__import__(app_module, {}, {}, [class_name]), class_name)
+        conf.METADATA_FORMS[release.metadata_version] = form_class
     
     initial = {}
     multivalue = ('classifier',)

@@ -3,7 +3,6 @@ from django.utils.hashcompat import md5_constructor
 
 from djangopypi.models import Package, Release, Distribution
 
-
 def autohide_new_release_handler(sender, instance, created, *args, **kwargs):
     """ Autohide other releases on the creation of a new release when the 
     package 'auto-hide' is True"""

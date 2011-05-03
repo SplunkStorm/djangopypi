@@ -1,18 +1,16 @@
 import os
-import re
 
 from django.conf import settings
 from django.db import transaction
-from django.http import *
+from django.http import HttpResponseForbidden, HttpResponseBadRequest, \
+                        HttpResponse, UPLOAD_TO
 from django.utils.translation import ugettext_lazy as _
 from django.utils.datastructures import MultiValueDict
-from django.contrib.auth import login
 
+from djangopypi import conf
 from djangopypi.decorators import basic_auth
 from djangopypi.forms import PackageForm, ReleaseForm
 from djangopypi.models import Package, Release, Distribution, Classifier
-
-
 
 ALREADY_EXISTS_FMT = _(
     "A file named '%s' already exists for %s. Please create a new release.")
@@ -21,7 +19,7 @@ def submit_package_or_release(user, post_data, files):
     """Registers/updates a package or release"""
     try:
         package = Package.objects.get(name=post_data['name'])
-        if user not in package.owners.all():
+        if not (conf.GLOBAL_OWNERSHIP or user in package.owners.all()):
             return HttpResponseForbidden(
                     "That package is owned by someone else!")
     except Package.DoesNotExist:
@@ -88,31 +86,33 @@ def register_or_upload(request):
         package = Package.objects.create(name=name)
         package.owners.add(request.user)
     
-    if (request.user not in package.owners.all() and 
-        request.user not in package.maintainers.all()):
+    if not (conf.GLOBAL_OWNERSHIP or request.user in package.owners.all() or 
+        request.user in package.maintainers.all()):
         
         return HttpResponseForbidden('You are not an owner/maintainer of %s' % (package.name,))
-    
-    version = request.POST.get('version',None).strip()    
-    
+
+    version = request.POST.get('version', None)
+    if version:
+        version = version.strip()
+
     release, created = Release.objects.get_or_create(package=package,
                                                      version=version)
-        
+    
     metadata_version = request.POST.get('metadata_version', None)
-
     if not metadata_version:
         metadata_version = release.metadata_version
 
-    metadata_version = metadata_version.strip()
+    if metadata_version:
+        metadata_version = metadata_version.strip()
     
     if not version or not metadata_version:
         transaction.rollback()
         return HttpResponseBadRequest('Release version and metadata version must be specified')
     
-    if not metadata_version in settings.DJANGOPYPI_METADATA_FIELDS:
+    if not metadata_version in conf.METADATA_FIELDS:
         transaction.rollback()
         return HttpResponseBadRequest('Metadata version must be one of: %s' 
-                                      (', '.join(settings.DJANGOPYPI_METADATA_FIELDS.keys()),))
+                                      (', '.join(conf.METADATA_FIELDS.keys()),))
     
     
     if (('classifiers' in request.POST or 'download_url' in request.POST) and 
@@ -121,7 +121,7 @@ def register_or_upload(request):
     
     release.metadata_version = metadata_version
     
-    fields = settings.DJANGOPYPI_METADATA_FIELDS[metadata_version]
+    fields = conf.METADATA_FIELDS[metadata_version]
     
     if 'classifiers' in request.POST:
         request.POST.setlist('classifier',request.POST.getlist('classifiers'))
