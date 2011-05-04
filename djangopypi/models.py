@@ -4,7 +4,7 @@ from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django.utils import simplejson as json
 from django.utils.datastructures import MultiValueDict
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 
 from djangopypi import conf
 
@@ -57,9 +57,9 @@ class Package(models.Model):
                             editable=False)
     auto_hide = models.BooleanField(default=True, blank=False)
     allow_comments = models.BooleanField(default=True, blank=False)
-    owners = models.ManyToManyField(User, blank=True,
+    owners = models.ManyToManyField(Group, blank=True,
                                     related_name="packages_owned")
-    maintainers = models.ManyToManyField(User, blank=True,
+    maintainers = models.ManyToManyField(Group, blank=True,
                                          related_name="packages_maintained")
 
     class Meta:
