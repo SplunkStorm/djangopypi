@@ -19,8 +19,6 @@ except ImportError:
 
 from djangopypi.models import Package, Release
 
-
-
 class ReleaseFeed(Feed):
     """ A feed of releases either for the site in general or for a specific 
     package. """

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from djangopypi.models import *
+from djangopypi.models import Package, Release, Classifier, \
+                              Distribution, Review
 
 admin.site.register(Package)
 admin.site.register(Release)

@@ -6,11 +6,10 @@ from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
 from django.views.generic import list_detail, create_update
 
+from djangopypi import conf
 from djangopypi.decorators import user_owns_package, user_maintains_package
 from djangopypi.models import Package, Release
 from djangopypi.forms import SimplePackageSearchForm, PackageForm
-
-
 
 def index(request, **kwargs):
     kwargs.setdefault('template_object_name', 'package')
@@ -31,9 +30,9 @@ def simple_details(request, package, **kwargs):
     try:
         return details(request, package, **kwargs)
     except Http404, e:
-        if settings.DJANGOPYPI_PROXY_MISSING:
+        if conf.PROXY_MISSING:
             return HttpResponseRedirect('%s/%s/' % 
-                                        (settings.DJANGOPYPI_PROXY_BASE_URL.rstrip('/'),
+                                        (conf.PROXY_BASE_URL.rstrip('/'),
                                          package))
         raise e
 
@@ -49,9 +48,10 @@ def search(request, **kwargs):
         form = SimplePackageSearchForm(request.GET)
     
     if form.is_valid():
-        q = form.cleaned_data['query']
+        q = form.cleaned_data['q']
         kwargs['queryset'] = Package.objects.filter(Q(name__contains=q) | 
                                                     Q(releases__package_info__contains=q)).distinct()
+
     return index(request, **kwargs)
 
 @user_owns_package()

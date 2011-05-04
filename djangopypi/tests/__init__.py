@@ -1,9 +1,8 @@
-import os
 import unittest
 import xmlrpclib
 import StringIO
 #from djangopypi.views import parse_distutils_request, simple
-from djangopypi.models import Package, Classifier, Release, PackageInfoField, Distribution
+from djangopypi.models import Package, Release
 from django.test.client import Client
 from django.core.urlresolvers import reverse
 from django.contrib.auth.models import User
@@ -112,7 +111,7 @@ class TestSearch(unittest.TestCase):
         self.dummy_user.delete()
     
     def test_search_for_package(self):
-        response = client.post(reverse('djangopypi-search'), {'search_term': 'foo'})
+        response = client.post(reverse('djangopypi-search'), {'query': 'foo'})
         self.assertTrue("The quick brown fox jumps over the lazy dog." in response.content)
         
 class TestSimpleView(unittest.TestCase):
@@ -139,7 +138,6 @@ class TestSimpleView(unittest.TestCase):
     #     response = simple(request)
     #     self.assertEquals(400, response.status_code)
 
-from django.test.client import MULTIPART_CONTENT
 class XmlRpcClient(Client):
     def __init__(self, *args, **kwargs):
         self.extra_headers = {}
@@ -164,8 +162,10 @@ class XmlRpcClient(Client):
 class ProxiedTransport(xmlrpclib.Transport):
     def set_proxy(self, proxy):
         self.proxy = proxy
+
     def make_connection(self, host):
         return XmlRpcClient()
+
     def single_request(self, host, handler, request_body, verbose=0):
         connection = self.make_connection(host)
         response = connection.post('/pypi/', request_body)

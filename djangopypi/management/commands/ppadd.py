@@ -7,22 +7,16 @@ from __future__ import with_statement
 import os
 import tempfile
 import shutil
-import urllib
 
 import pkginfo
 
+from contextlib import contextmanager
+from django.contrib.auth.models import User
 from django.core.files.base import File
 from django.core.management.base import LabelCommand
-from optparse import make_option
-from contextlib import contextmanager
-from urlparse import urlsplit
-from setuptools.package_index import PackageIndex
-from django.contrib.auth.models import User
 from djangopypi.models import Package, Release, Classifier
-
-
-
-
+from optparse import make_option
+from setuptools.package_index import PackageIndex
 
 @contextmanager
 def tempdir():
