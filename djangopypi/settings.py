@@ -1,4 +1,6 @@
 from django.conf import settings
+import os
+import chishop
 
 # This is disabled on pypi.python.org, can be useful if you make mistakes
 if not hasattr(settings,'DJANGOPYPI_ALLOW_VERSION_OVERWRITE'):
@@ -120,3 +122,4 @@ if not hasattr(settings, 'DJANGOPYPI_PROXY_BASE_URL'):
 
 if not hasattr(settings, 'DJANGOPYPI_PROXY_MISSING'):
     settings.DJANGOPYPI_PROXY_MISSING = False
+    
