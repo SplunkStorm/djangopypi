@@ -74,13 +74,33 @@ def submit_package_or_release(user, post_data, files):
 @transaction.autocommit
 def register_or_upload(request):
     if request.method != 'POST':
-        return HttpResponseBadRequest('Only post requests are supported')
+        logger.info('Only post requests are supported.')
+        return HttpResponseBadRequest('Only post requests are supported.')
 
     name = request.POST.get('name',None).strip()
+    username = request.user.username
     
     if not name:
-        return HttpResponseBadRequest('No package name specified')
+        logger.info('No package name specified.')
+        return HttpResponseBadRequest('No package name specified.')
+
+    # get group of user
+    try:
+        group = request.user.groups.get()
+    except:
+        logger.info('%s is in more than 1 group, not allowing package to be uploaded.' % (username))
+        return HttpResponseForbidden('%s is in more than 1 group, not allowing package to be uploaded.' % (username))
+        
+    if not group:
+        logger.info('%s is not in a group, not allowing package to be uploaded.' % (username))
+        return HttpResponseForbidden('%s is not in a group, not allowing package to be uploaded.' % (username))
+
+    # check group can upload
+    if not 'add_package' in [ perm.codename for perm in group.permissions.all()]:
+        logger.info("%s's group - %s does not have permissions to upload new packages." % (username, group.name))
+        return HttpResponseForbidden("%s's group - %s does not have permissions to upload new packages." % (username, group.name))
     
+    # fetch existing package or create new one
     try:
         package = Package.objects.get(name=name)
     except Package.DoesNotExist:
@@ -88,18 +108,15 @@ def register_or_upload(request):
         package.owners.add(request.user.groups.all()[0])
         
     if not request.user.is_superuser:
-        group = request.user.groups.all()
-        
-        if group:
-            if group[0] != package.owners.get():
-                return HttpResponseForbidden('You are not an owner/maintainer of %s' % (package.name,))
-        else:
-            return HttpResponseForbidden('You are not IN A GROUP!!')
-
+        if group != package.owners.get():
+            logger.info("'%s' is in the group '%s', only members of '%s' can upload new versions of this package." % (username, package.owners.get().name, group.name))
+            return HttpResponseForbidden("'%s' is in the group '%s', only members of '%s' can upload new versions of this package." % (username, package.owners.get().name, group.name))
+    
     version = request.POST.get('version', None)
     if version:
         version = version.strip()
     
+    # check if package with version number already exists, error if true
     if not Release.objects.filter(package=package,version=version):
         release, created = Release.objects.get_or_create(package=package,
                                                          version=version)
@@ -113,10 +130,13 @@ def register_or_upload(request):
         
         if not version or not metadata_version:
             transaction.rollback()
+            logger.info('Release version and metadata version must be specified')
             return HttpResponseBadRequest('Release version and metadata version must be specified')
         
         if not metadata_version in conf.METADATA_FIELDS:
             transaction.rollback()
+            logger.info('Metadata version must be one of: %s' 
+                                          (', '.join(conf.METADATA_FIELDS.keys()),))
             return HttpResponseBadRequest('Metadata version must be one of: %s' 
                                           (', '.join(conf.METADATA_FIELDS.keys()),))
         
@@ -142,6 +162,7 @@ def register_or_upload(request):
         release.save()
         if not 'content' in request.FILES:
             transaction.commit()
+            logger.info('release registered')
             return HttpResponse('release registered')
         
         uploaded = request.FILES.get('content')
@@ -150,6 +171,7 @@ def register_or_upload(request):
             if os.path.basename(dist.content.name) == uploaded.name:
                 """ Need to add handling optionally deleting old and putting up new """
                 transaction.rollback()
+                logger.info('That file has already been uploaded...')
                 return HttpResponseBadRequest('That file has already been uploaded...')
     
         md5_digest = request.POST.get('md5_digest','')
@@ -168,7 +190,7 @@ def register_or_upload(request):
             print str(e)
         
         transaction.commit()
-        
+        logger.info('upload accepted')
         return HttpResponse('upload accepted')
     
     else:
