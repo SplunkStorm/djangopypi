@@ -76,9 +76,6 @@ def register_or_upload(request):
     if request.method != 'POST':
         return HttpResponseBadRequest('Only post requests are supported')
 
-    if not 'djangopypi.add_package' in request.user.get_all_permissions():
-        return HttpResponseForbidden('User not permitted to upload new packages.')
-    
     name = request.POST.get('name',None).strip()
     
     if not name:
