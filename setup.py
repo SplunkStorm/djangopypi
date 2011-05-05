@@ -10,7 +10,7 @@ setup(
     name='djangopypi',
     version=version,
     description="A Django application that emulates the Python Package Index.",
-    long_description=fread("README")+"\n\n"+fread('Changelog')+"\n\n"+fread('TODO'),
+    long_description=fread("README.rst")+"\n\n"+fread('Changelog')+"\n\n"+fread('TODO'),
     classifiers=[
         "Framework :: Django",
         "Development Status :: 4 - Beta",
