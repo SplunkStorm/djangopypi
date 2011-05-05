@@ -116,87 +116,84 @@ def register_or_upload(request):
     if version:
         version = version.strip()
     
-    # check if package with version number already exists, error if true
-    if not Release.objects.filter(package=package,version=version):
-        release, created = Release.objects.get_or_create(package=package,
-                                                         version=version)
-    
-        metadata_version = request.POST.get('metadata_version', None)
-        if not metadata_version:
-            metadata_version = release.metadata_version
-    
-        if metadata_version:
-            metadata_version = metadata_version.strip()
-        
-        if not version or not metadata_version:
-            transaction.rollback()
-            logger.info('Release version and metadata version must be specified')
-            return HttpResponseBadRequest('Release version and metadata version must be specified')
-        
-        if not metadata_version in conf.METADATA_FIELDS:
-            transaction.rollback()
-            logger.info('Metadata version must be one of: %s' 
-                                          (', '.join(conf.METADATA_FIELDS.keys()),))
-            return HttpResponseBadRequest('Metadata version must be one of: %s' 
-                                          (', '.join(conf.METADATA_FIELDS.keys()),))
-        
-        
-        if (('classifiers' in request.POST or 'download_url' in request.POST) and 
-            metadata_version == '1.0'):
-            metadata_version = '1.1'
-        
-        release.metadata_version = metadata_version
-        
-        fields = conf.METADATA_FIELDS[metadata_version]
-        
-        if 'classifiers' in request.POST:
-            request.POST.setlist('classifier',request.POST.getlist('classifiers'))
-        
-        release.package_info = MultiValueDict(dict(filter(lambda t: t[0] in fields,
-                                                          request.POST.iterlists())))
-        
-        for key, value in release.package_info.iterlists():
-            release.package_info.setlist(key,
-                                         filter(lambda v: v != 'UNKNOWN', value))
-        
-        release.save()
-        if not 'content' in request.FILES:
-            transaction.commit()
-            logger.info('release registered')
-            return HttpResponse('release registered')
-        
-        uploaded = request.FILES.get('content')
-        
-        for dist in release.distributions.all():
-            if os.path.basename(dist.content.name) == uploaded.name:
-                """ Need to add handling optionally deleting old and putting up new """
-                transaction.rollback()
-                logger.info('That file has already been uploaded...')
-                return HttpResponseBadRequest('That file has already been uploaded...')
-    
-        md5_digest = request.POST.get('md5_digest','')
-        
-        try:
-            new_file = Distribution.objects.create(release=release,
-                                                   content=uploaded,
-                                                   filetype=request.POST.get('filetype','sdist'),
-                                                   pyversion=request.POST.get('pyversion',''),
-                                                   uploader=request.user,
-                                                   comment=request.POST.get('comment',''),
-                                                   signature=request.POST.get('gpg_signature',''),
-                                                   md5_digest=md5_digest)
-        except Exception, e:
-            transaction.rollback()
-            print str(e)
-        
-        transaction.commit()
-        logger.info('upload accepted')
-        return HttpResponse('upload accepted')
-    
-    else:
-        logger.info('Package %s with version number %s already exists.' % (name, version))
-        return HttpResponseForbidden('Package %s with version number %s already exists.' % (name, version))
+   
+    release, created = Release.objects.get_or_create(package=package,
+                                                     version=version)
 
+    metadata_version = request.POST.get('metadata_version', None)
+    if not metadata_version:
+        metadata_version = release.metadata_version
+
+    if metadata_version:
+        metadata_version = metadata_version.strip()
+    
+    if not version or not metadata_version:
+        transaction.rollback()
+        logger.info('Release version and metadata version must be specified')
+        return HttpResponseBadRequest('Release version and metadata version must be specified')
+    
+    if not metadata_version in conf.METADATA_FIELDS:
+        transaction.rollback()
+        logger.info('Metadata version must be one of: %s' 
+                                      (', '.join(conf.METADATA_FIELDS.keys()),))
+        return HttpResponseBadRequest('Metadata version must be one of: %s' 
+                                      (', '.join(conf.METADATA_FIELDS.keys()),))
+    
+    
+    if (('classifiers' in request.POST or 'download_url' in request.POST) and 
+        metadata_version == '1.0'):
+        metadata_version = '1.1'
+    
+    release.metadata_version = metadata_version
+    
+    fields = conf.METADATA_FIELDS[metadata_version]
+    
+    if 'classifiers' in request.POST:
+        request.POST.setlist('classifier',request.POST.getlist('classifiers'))
+    
+    package_info = MultiValueDict(dict(filter(lambda t: t[0] in fields,
+                                                      request.POST.iterlists())))
+    if package_info:
+        release.package_info = package_info
+    
+    for key, value in release.package_info.iterlists():
+        release.package_info.setlist(key,
+                                     filter(lambda v: v != 'UNKNOWN', value))
+    
+    release.save()
+    if not 'content' in request.FILES:
+        transaction.commit()
+        logger.info('release registered')
+        return HttpResponse('release registered')
+    
+    uploaded = request.FILES.get('content')
+    
+    for dist in release.distributions.all():
+        if os.path.basename(dist.content.name) == uploaded.name:
+            """ Need to add handling optionally deleting old and putting up new """
+            transaction.rollback()
+            logger.info('That file has already been uploaded...')
+            return HttpResponseBadRequest('That file has already been uploaded...')
+
+    md5_digest = request.POST.get('md5_digest','')
+    
+    try:
+        new_file = Distribution.objects.create(release=release,
+                                               content=uploaded,
+                                               filetype=request.POST.get('filetype','sdist'),
+                                               pyversion=request.POST.get('pyversion',''),
+                                               uploader=request.user,
+                                               comment=request.POST.get('comment',''),
+                                               signature=request.POST.get('gpg_signature',''),
+                                               md5_digest=md5_digest)
+    except Exception, e:
+        transaction.rollback()
+        print str(e)
+    
+    transaction.commit()
+    logger.info('upload accepted')
+    return HttpResponse('upload accepted')
+    
 
 def list_classifiers(request, mimetype='text/plain'):
     response = HttpResponse(mimetype=mimetype)
