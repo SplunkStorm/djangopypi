@@ -88,6 +88,11 @@ class Package(models.Model):
             return self.releases.get(version=version)
         except Release.DoesNotExist:
             return None
+    
+    def delete(self,*args,**kwargs):
+        for release in self.releases.all():
+            release.delete()
+        super(Package,self).delete(*args,**kwargs)
 
 class Release(models.Model):
     package = models.ForeignKey(Package, related_name="releases", editable=False)
@@ -127,6 +132,11 @@ class Release(models.Model):
     def get_absolute_url(self):
         return ('djangopypi-release', (), {'package': self.package.name,
                                            'version': self.version})
+    
+    def delete(self,*args,**kwargs):
+        for distribution in self.distributions.all():
+            distribution.delete()
+        super(Release,self).delete(*args,**kwargs)
 
 
 class Distribution(models.Model):
@@ -168,6 +178,13 @@ class Distribution(models.Model):
 
     def __unicode__(self):
         return self.filename
+    
+    def delete(self,*args,**kwargs):
+        try:
+            self.content.delete()
+        except:
+            pass
+        super(Distribution,self).delete(*args,**kwargs)
 
 class Review(models.Model):
     release = models.ForeignKey(Release, related_name="reviews")
