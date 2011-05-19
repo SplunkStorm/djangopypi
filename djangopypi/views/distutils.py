@@ -11,6 +11,9 @@ from djangopypi import conf
 from djangopypi.decorators import basic_auth
 from djangopypi.forms import PackageForm, ReleaseForm
 from djangopypi.models import Package, Release, Distribution, Classifier
+
+from datetime import datetime
+
 import logging
 
 # Get an instance of a logger
@@ -73,15 +76,18 @@ def submit_package_or_release(user, post_data, files):
 @basic_auth
 @transaction.autocommit
 def register_or_upload(request):
+
+    username = request.user.username
+    
     if request.method != 'POST':
-        logger.info('Only post requests are supported.')
+        logger.info('Only post requests are supported. User %s' % (username))
         return HttpResponseBadRequest('Only post requests are supported.')
 
     name = request.POST.get('name',None).strip()
-    username = request.user.username
+    
     
     if not name:
-        logger.info('No package name specified.')
+        logger.info('No package name specified. User %s' % (username))
         return HttpResponseBadRequest('No package name specified.')
 
     # get group of user
@@ -130,13 +136,13 @@ def register_or_upload(request):
         
         if not version or not metadata_version:
             transaction.rollback()
-            logger.info('Release version and metadata version must be specified')
+            logger.info('Release version and metadata version must be specified. User %s' %(username))
             return HttpResponseBadRequest('Release version and metadata version must be specified')
         
         if not metadata_version in conf.METADATA_FIELDS:
             transaction.rollback()
-            logger.info('Metadata version must be one of: %s' 
-                                          (', '.join(conf.METADATA_FIELDS.keys()),))
+            logger.info('Metadata version must be one of: %s. %s' 
+                                          (', '.join(conf.METADATA_FIELDS.keys()),), username)
             return HttpResponseBadRequest('Metadata version must be one of: %s' 
                                           (', '.join(conf.METADATA_FIELDS.keys()),))
         
@@ -162,7 +168,7 @@ def register_or_upload(request):
         release.save()
         if not 'content' in request.FILES:
             transaction.commit()
-            logger.info('release registered')
+            logger.info('release registered for package %s %s, uploaded by user %s at time %s' % (package.name, version, request.user, datetime.now()))
             return HttpResponse('release registered')
         
         uploaded = request.FILES.get('content')
@@ -171,7 +177,7 @@ def register_or_upload(request):
             if os.path.basename(dist.content.name) == uploaded.name:
                 """ Need to add handling optionally deleting old and putting up new """
                 transaction.rollback()
-                logger.info('That file has already been uploaded...')
+                logger.info('That file has already been uploaded... User %s' % (username))
                 return HttpResponseBadRequest('That file has already been uploaded...')
     
         md5_digest = request.POST.get('md5_digest','')
@@ -190,11 +196,11 @@ def register_or_upload(request):
             print str(e)
         
         transaction.commit()
-        logger.info('upload accepted')
+        logger.info('package %s %s, uploaded by user %s at %s' % (package.name, version, username, datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')))
         return HttpResponse('upload accepted')
     
     else:
-        logger.info('Package %s with version number %s already exists.' % (name, version))
+        logger.info('Package %s with version number %s already exists. User %s' % (name, version, username))
         return HttpResponseForbidden('Package %s with version number %s already exists.' % (name, version))
 
 
