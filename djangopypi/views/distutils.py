@@ -73,15 +73,17 @@ def submit_package_or_release(user, post_data, files):
 @basic_auth
 @transaction.autocommit
 def register_or_upload(request):
+
+    username = request.user.username
+    
     if request.method != 'POST':
-        logger.info('Only post requests are supported.')
+        logger.info('user:%s. Only post requests are supported.' % (username))
         return HttpResponseBadRequest('Only post requests are supported.')
 
     name = request.POST.get('name',None).strip()
-    username = request.user.username
     
     if not name:
-        logger.info('No package name specified.')
+        logger.info('user:%s. No package name specified.' % (username))
         return HttpResponseBadRequest('No package name specified.')
 
     # get group of user
@@ -129,13 +131,13 @@ def register_or_upload(request):
     
     if not version or not metadata_version:
         transaction.rollback()
-        logger.info('Release version and metadata version must be specified')
+        logger.info('user:%s. Release version and metadata version must be specified' % (username))
         return HttpResponseBadRequest('Release version and metadata version must be specified')
     
     if not metadata_version in conf.METADATA_FIELDS:
         transaction.rollback()
-        logger.info('Metadata version must be one of: %s' 
-                                      (', '.join(conf.METADATA_FIELDS.keys()),))
+        logger.info('user:%s. Metadata version must be one of: %s' 
+                                      (username, ', '.join(conf.METADATA_FIELDS.keys()),))
         return HttpResponseBadRequest('Metadata version must be one of: %s' 
                                       (', '.join(conf.METADATA_FIELDS.keys()),))
     
@@ -172,8 +174,8 @@ def register_or_upload(request):
         if os.path.basename(dist.content.name) == uploaded.name:
             """ Need to add handling optionally deleting old and putting up new """
             transaction.rollback()
-            logger.info('That file has already been uploaded...')
-            return HttpResponseBadRequest('That file has already been uploaded...')
+            logger.info('user:%s package:%s. That file has already been uploaded.' % (username, package.name))
+            return HttpResponseBadRequest('package:%s version%s. That file has already been uploaded.' % (package.name, version))
 
     md5_digest = request.POST.get('md5_digest','')
     
@@ -191,7 +193,7 @@ def register_or_upload(request):
         print str(e)
     
     transaction.commit()
-    logger.info('upload accepted')
+    logger.info('user:%s package:%s version:%s uploaded:%s' % (username, package.name, version, datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')))
     return HttpResponse('upload accepted')
     
 
