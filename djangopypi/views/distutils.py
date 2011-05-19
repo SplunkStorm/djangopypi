@@ -13,6 +13,8 @@ from djangopypi.forms import PackageForm, ReleaseForm
 from djangopypi.models import Package, Release, Distribution, Classifier
 import logging
 
+from datetime import datetime
+
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 
