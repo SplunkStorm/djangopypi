@@ -11,9 +11,6 @@ from djangopypi import conf
 from djangopypi.decorators import basic_auth
 from djangopypi.forms import PackageForm, ReleaseForm
 from djangopypi.models import Package, Release, Distribution, Classifier
-
-from datetime import datetime
-
 import logging
 
 # Get an instance of a logger
@@ -76,18 +73,15 @@ def submit_package_or_release(user, post_data, files):
 @basic_auth
 @transaction.autocommit
 def register_or_upload(request):
-
-    username = request.user.username
-    
     if request.method != 'POST':
-        logger.info('Only post requests are supported. User %s' % (username))
+        logger.info('Only post requests are supported.')
         return HttpResponseBadRequest('Only post requests are supported.')
 
     name = request.POST.get('name',None).strip()
-    
+    username = request.user.username
     
     if not name:
-        logger.info('No package name specified. User %s' % (username))
+        logger.info('No package name specified.')
         return HttpResponseBadRequest('No package name specified.')
 
     # get group of user
@@ -122,90 +116,86 @@ def register_or_upload(request):
     if version:
         version = version.strip()
     
-    # check if package with version number already exists, error if true
-    if not Release.objects.filter(package=package,version=version):
-        release, created = Release.objects.get_or_create(package=package,
-                                                         version=version)
-    
-        metadata_version = request.POST.get('metadata_version', None)
-        if not metadata_version:
-            metadata_version = release.metadata_version
-    
-        if metadata_version:
-            metadata_version = metadata_version.strip()
-        
-        if not version or not metadata_version:
-            transaction.rollback()
-            logger.info('Release version and metadata version must be specified. User %s' %(username))
-            return HttpResponseBadRequest('Release version and metadata version must be specified')
-        
-        if not metadata_version in conf.METADATA_FIELDS:
-            transaction.rollback()
-            logger.info('Metadata version must be one of: %s. %s' 
-                                          (', '.join(conf.METADATA_FIELDS.keys()),), username)
-            return HttpResponseBadRequest('Metadata version must be one of: %s' 
-                                          (', '.join(conf.METADATA_FIELDS.keys()),))
-        
-        
-        if (('classifiers' in request.POST or 'download_url' in request.POST) and 
-            metadata_version == '1.0'):
-            metadata_version = '1.1'
-        
-        release.metadata_version = metadata_version
-        
-        fields = conf.METADATA_FIELDS[metadata_version]
-        
-        if 'classifiers' in request.POST:
-            request.POST.setlist('classifier',request.POST.getlist('classifiers'))
-        
-        release.package_info = MultiValueDict(dict(filter(lambda t: t[0] in fields,
-                                                          request.POST.iterlists())))
-        
-        for key, value in release.package_info.iterlists():
-            release.package_info.setlist(key,
-                                         filter(lambda v: v != 'UNKNOWN', value))
-        
-        release.save()
-        if not 'content' in request.FILES:
-            transaction.commit()
-            logger.info('release registered for package %s %s, uploaded by user %s at time %s' % (package.name, version, request.user, datetime.now()))
-            return HttpResponse('release registered')
-        
-        uploaded = request.FILES.get('content')
-        
-        for dist in release.distributions.all():
-            if os.path.basename(dist.content.name) == uploaded.name:
-                """ Need to add handling optionally deleting old and putting up new """
-                transaction.rollback()
-                logger.info('That file has already been uploaded... User %s' % (username))
-                return HttpResponseBadRequest('That file has already been uploaded...')
-    
-        md5_digest = request.POST.get('md5_digest','')
-        
-        try:
-            new_file = Distribution.objects.create(release=release,
-                                                   content=uploaded,
-                                                   filetype=request.POST.get('filetype','sdist'),
-                                                   pyversion=request.POST.get('pyversion',''),
-                                                   uploader=request.user,
-                                                   comment=request.POST.get('comment',''),
-                                                   signature=request.POST.get('gpg_signature',''),
-                                                   md5_digest=md5_digest)
-        except Exception, e:
-            transaction.rollback()
-            print str(e)
-        
-        transaction.commit()
-        logger.info('package %s %s, uploaded by user %s at %s' % (package.name, version, username, datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')))
-        return HttpResponse('upload accepted')
-    
-    else:
-        logger.info('Package %s with version number %s already exists. User %s' % (name, version, username))
-        return HttpResponseForbidden('Package %s with version number %s already exists.' % (name, version))
+   
+    release, created = Release.objects.get_or_create(package=package,
+                                                     version=version)
 
+    metadata_version = request.POST.get('metadata_version', None)
+    if not metadata_version:
+        metadata_version = release.metadata_version
+
+    if metadata_version:
+        metadata_version = metadata_version.strip()
+    
+    if not version or not metadata_version:
+        transaction.rollback()
+        logger.info('Release version and metadata version must be specified')
+        return HttpResponseBadRequest('Release version and metadata version must be specified')
+    
+    if not metadata_version in conf.METADATA_FIELDS:
+        transaction.rollback()
+        logger.info('Metadata version must be one of: %s' 
+                                      (', '.join(conf.METADATA_FIELDS.keys()),))
+        return HttpResponseBadRequest('Metadata version must be one of: %s' 
+                                      (', '.join(conf.METADATA_FIELDS.keys()),))
+    
+    
+    if (('classifiers' in request.POST or 'download_url' in request.POST) and 
+        metadata_version == '1.0'):
+        metadata_version = '1.1'
+    
+    release.metadata_version = metadata_version
+    
+    fields = conf.METADATA_FIELDS[metadata_version]
+    
+    if 'classifiers' in request.POST:
+        request.POST.setlist('classifier',request.POST.getlist('classifiers'))
+    
+    package_info = MultiValueDict(dict(filter(lambda t: t[0] in fields,
+                                                      request.POST.iterlists())))
+    if package_info:
+        release.package_info = package_info
+    
+    for key, value in release.package_info.iterlists():
+        release.package_info.setlist(key,
+                                     filter(lambda v: v != 'UNKNOWN', value))
+    
+    release.save()
+    if not 'content' in request.FILES:
+        transaction.commit()
+        logger.info('release registered')
+        return HttpResponse('release registered')
+    
+    uploaded = request.FILES.get('content')
+    
+    for dist in release.distributions.all():
+        if os.path.basename(dist.content.name) == uploaded.name:
+            """ Need to add handling optionally deleting old and putting up new """
+            transaction.rollback()
+            logger.info('That file has already been uploaded...')
+            return HttpResponseBadRequest('That file has already been uploaded...')
+
+    md5_digest = request.POST.get('md5_digest','')
+    
+    try:
+        new_file = Distribution.objects.create(release=release,
+                                               content=uploaded,
+                                               filetype=request.POST.get('filetype','sdist'),
+                                               pyversion=request.POST.get('pyversion',''),
+                                               uploader=request.user,
+                                               comment=request.POST.get('comment',''),
+                                               signature=request.POST.get('gpg_signature',''),
+                                               md5_digest=md5_digest)
+    except Exception, e:
+        transaction.rollback()
+        print str(e)
+    
+    transaction.commit()
+    logger.info('upload accepted')
+    return HttpResponse('upload accepted')
+    
 
 def list_classifiers(request, mimetype='text/plain'):
     response = HttpResponse(mimetype=mimetype)
     response.write(u'\n'.join(map(lambda c: c.name,Classifier.objects.all())))
     return response
-
