@@ -92,8 +92,8 @@ def register_or_upload(request):
     try:
         group = request.user.groups.get()
     except:
-        logger.info('%s is in more than 1 group, not allowing package to be uploaded.' % (username))
-        return HttpResponseForbidden('%s is in more than 1 group, not allowing package to be uploaded.' % (username))
+        logger.info('Not allowing package to be uploaded: %s should only be in one group.' % (username))
+        return HttpResponseForbidden('Not allowing package to be uploaded: %s should only be in one group.' % (username))
         
     if not group:
         logger.info('%s is not in a group, not allowing package to be uploaded.' % (username))
