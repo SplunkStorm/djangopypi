@@ -1,11 +1,14 @@
 import os
+import textwrap
 
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpResponseForbidden, HttpResponseBadRequest, \
                         HttpResponse
+from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.utils.datastructures import MultiValueDict
+from django.contrib.sites.models import Site
 
 from djangopypi import conf
 from djangopypi.decorators import basic_auth
@@ -107,9 +110,12 @@ def register_or_upload(request):
     # fetch existing package or create new one
     try:
         package = Package.objects.get(name=name)
+        created_package = False
     except Package.DoesNotExist:
         package = Package.objects.create(name=name)
         package.owners.add(request.user.groups.all()[0])
+        package.download_permissions.add(request.user.groups.all()[0])
+        created_package = True
         
     if not request.user.is_superuser:
         if group != package.owners.get():
@@ -196,7 +202,29 @@ def register_or_upload(request):
     
     transaction.commit()
     logger.info('user:%s package:%s version:%s uploaded:%s' % (username, package.name, version, datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')))
-    return HttpResponse('upload accepted')
+    if created_package:
+        current_domain = Site.objects.get_current().domain,
+        return HttpResponse(textwrap.dedent('''
+            Upload accepted. Added new package %(package_name)s.
+            To view the new package, visit %(domain)s%(package_url)s.
+
+            Currently, this package can be downloaded by members of the %(groups)s group.
+            To alter download permissions of the new package, visit %(domain)s%(admin_url)s
+            ''' % {
+                'package_name': package.name,
+                'domain': Site.objects.get_current().domain,
+                'package_url': package.get_absolute_url(),
+                'groups': ','.join(
+                    g.name for g in package.download_permissions.all()
+                ),
+                'admin_url': reverse(
+                    'admin:djangopypi_package_change',
+                    args=(package.name,)
+                )
+            }
+        ))
+    else:
+        return HttpResponse('\nUpload accepted.\n')
     
 
 def list_classifiers(request, mimetype='text/plain'):
