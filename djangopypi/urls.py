@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.conf.urls.defaults import patterns, url
+from django.conf import settings
 from djangopypi.feeds import ReleaseFeed
 
 urlpatterns = patterns("djangopypi.views",
@@ -36,4 +37,13 @@ urlpatterns = patterns("djangopypi.views",
         'releases.manage_files',name='djangopypi-release-manage-files'),
     url(r'^pypi/(?P<package>[\w\d_\.\-]+)/(?P<version>[\w\d_\.\-]+)/files/upload/$',
         'releases.upload_file',name='djangopypi-release-upload-file'),
+
+    url(
+        r'^%s(?P<path>%s.*)$' % (
+            settings.MEDIA_URL[1:],
+            settings.DJANGOPYPI_RELEASE_UPLOAD_TO
+        ),
+        'releases.download_dist', {'document_root': settings.MEDIA_ROOT},
+        name='djangopypi-download'
+    ),
 )

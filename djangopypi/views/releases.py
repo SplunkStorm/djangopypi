@@ -1,13 +1,16 @@
+from os.path import join
+
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.forms.models import inlineformset_factory
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from django.views.generic import list_detail, create_update
+from django.views.static import serve
 from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
 
 from djangopypi import conf
-from djangopypi.decorators import user_maintains_package
+from djangopypi.decorators import user_maintains_package, basic_auth
 from djangopypi.models import Package, Release, Distribution
 from djangopypi.forms import ReleaseForm, DistributionUploadForm
 
@@ -187,3 +190,19 @@ def upload_file(request, package, version, **kwargs):
     return render_to_response(kwargs['template_name'], kwargs['extra_context'],
                               context_instance=RequestContext(request),
                               mimetype=kwargs['mimetype'])
+
+@basic_auth
+def download_dist(request, path, document_root=None, show_indexes=False):
+    # Find the related release, and its related package.
+    dist = get_object_or_404(Distribution, content=path)
+    # Get a list of the groups that can download this package
+    package = dist.release.package
+    download_permissions = package.download_permissions.all()
+    # Compare against this user's primary group
+    user_groups = request.user.groups.all()
+    if len(user_groups) > 0:
+        if user_groups[0] in download_permissions:
+            return serve(request, path, document_root, show_indexes)
+    return HttpResponseForbidden(
+        'You are not authorised to download %s' % package.name
+    )
