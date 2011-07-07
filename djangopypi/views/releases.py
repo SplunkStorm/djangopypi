@@ -1,5 +1,3 @@
-from os.path import join
-
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.forms.models import inlineformset_factory

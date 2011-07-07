@@ -203,23 +203,21 @@ def register_or_upload(request):
     transaction.commit()
     logger.info('user:%s package:%s version:%s uploaded:%s' % (username, package.name, version, datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')))
     if created_package:
-        current_domain = Site.objects.get_current().domain,
         return HttpResponse(textwrap.dedent('''
             Upload accepted. Added new package %(package_name)s.
-            To view the new package, visit %(domain)s%(package_url)s.
+            To view the new package, visit %(package_url)s.
 
             Currently, this package can be downloaded by members of the %(groups)s group.
-            To alter download permissions of the new package, visit %(domain)s%(admin_url)s
+            To alter download permissions of the new package, visit %(admin_url)s
             ''' % {
                 'package_name': package.name,
-                'domain': Site.objects.get_current().domain,
-                'package_url': package.get_absolute_url(),
+                'package_url': request.build_absolute_uri(package.get_absolute_url()),
                 'groups': ','.join(
                     g.name for g in package.download_permissions.all()
                 ),
-                'admin_url': reverse(
+                'admin_url': request.build_absolute_uri(reverse(
                     'admin:djangopypi_package_change',
-                    args=(package.name,)
+                    args=(package.name,))
                 )
             }
         ))
