@@ -20,7 +20,9 @@ def saferst(value):
                               writer_name="html4css1",
                               settings_overrides=docutils_settings)
     except:
-        return force_unicode(value)
+        # If formatting the rst fails, encapsulate the source text
+        # with <pre> tags, see <https://code.djangoproject.com/ticket/6681>
+        return mark_safe('<pre>%s</pre>' % force_unicode(value))
     else:
         return mark_safe(force_unicode(parts["fragment"]))
 saferst.is_safe = True
