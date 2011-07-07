@@ -60,7 +60,11 @@ class Package(models.Model):
     owners = models.ManyToManyField(Group, blank=True,
                                     related_name="packages_owned")
     download_permissions = models.ManyToManyField(Group, blank=True,
-                help_text="Determines which groups can download this package.")
+        help_text="""
+            Determines which groups can download this package -
+            selecting no groups at all will allow anyone access to the package.
+        """
+    )
     maintainers = models.ManyToManyField(Group, blank=True,
                                          related_name="packages_maintained")
 
