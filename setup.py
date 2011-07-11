@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 def fread(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-version = '0.4.4-isotoma5'
+version = '0.4.4-isotoma6'
 
 setup(
     name='djangopypi',
