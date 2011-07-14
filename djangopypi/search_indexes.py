@@ -5,10 +5,10 @@ from djangopypi.models import Package
 
 if 'haystack' in settings.INSTALLED_APPS:
     from haystack import site
-    from haystack.indexes import SearchIndex
+    from haystack.indexes import RealTimeSearchIndex
     from haystack.fields import CharField, MultiValueField
 
-    class PackageSearchIndex(SearchIndex):
+    class PackageSearchIndex(RealTimeSearchIndex):
         name = CharField(model_attr='name')
         text = CharField(document=True, use_template=True, null=True, stored=False,
                          template_name='djangopypi/haystack/package_text.txt')
