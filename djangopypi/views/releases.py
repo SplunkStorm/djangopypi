@@ -15,7 +15,10 @@ from djangopypi.forms import ReleaseForm, DistributionUploadForm
 
 def index(request, **kwargs):
     kwargs.setdefault('template_object_name','release')
-    kwargs.setdefault('queryset',Release.objects.filter(hidden=False))
+    kwargs.setdefault(
+        'queryset',
+        Release.objects.filter(hidden=False).order_by('package__name')
+    )
     return list_detail.object_list(request, **kwargs)
 
 def details(request, package, version, **kwargs):
