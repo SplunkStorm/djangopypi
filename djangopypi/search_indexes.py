@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth.models import User, Group
 
 from djangopypi.models import Package
 
@@ -22,9 +23,10 @@ if 'haystack' in settings.INSTALLED_APPS:
         def prepare_author(self, obj):
             output = []
             for user in list(obj.owners.all()) + list(obj.maintainers.all()):
-                output.append(user.get_full_name())
-                if user.email:
-                    output.append(user.email)
+                if isinstance(user, User):
+                    output.append(user.get_full_name())
+                elif isinstance(user, Group):
+                    output.append(user.name)
             if obj.latest:
                 info = obj.latest.package_info
                 for field in ('author','author_email', 'maintainer',
