@@ -1,10 +1,11 @@
 from django.conf import settings
 from django.db.models.query import Q
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect, HttpResponseForbidden
 from django.forms.models import inlineformset_factory
 from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
 from django.views.generic import list_detail, create_update
+from django.contrib.auth.views import redirect_to_login
 
 from djangopypi import conf
 from djangopypi.decorators import user_owns_package, user_maintains_package
@@ -20,15 +21,32 @@ def simple_index(request, **kwargs):
     kwargs.setdefault('template_name', 'djangopypi/package_list_simple.html')
     return index(request, **kwargs)
 
-def details(request, package, **kwargs):
+def details(request, package, simple=False, **kwargs):
+    package = get_object_or_404(Package, name=package)
     kwargs.setdefault('template_object_name', 'package')
-    kwargs.setdefault('queryset', Package.objects.all())
-    return list_detail.object_detail(request, object_id=package, **kwargs)
+
+    if not simple:
+        if not request.user.is_authenticated():
+            return redirect_to_login(request.get_full_path())
+
+        kwargs.setdefault('queryset', Package.objects.filter(
+            Q(download_permissions=None) |
+            Q(download_permissions__in=request.user.groups.all())
+        ))
+
+        try:
+            return list_detail.object_detail(request, object_id=package, **kwargs)
+        except Http404:
+            return HttpResponseForbidden('You do not have sufficient \
+                                            permissions to view this package')
+    else:
+        kwargs.setdefault('queryset', Package.objects.all())
+        return list_detail.object_detail(request, object_id=package, **kwargs)
 
 def simple_details(request, package, **kwargs):
     kwargs.setdefault('template_name', 'djangopypi/package_detail_simple.html')
     try:
-        return details(request, package, **kwargs)
+        return details(request, package, simple=True, **kwargs)
     except Http404, e:
         if conf.PROXY_MISSING:
             return HttpResponseRedirect('%s/%s/' % 
@@ -39,7 +57,7 @@ def simple_details(request, package, **kwargs):
 def doap(request, package, **kwargs):
     kwargs.setdefault('template_name', 'djangopypi/package_doap.xml')
     kwargs.setdefault('mimetype', 'text/xml')
-    return details(request, package, **kwargs)
+    return details(request, package, simple=True, **kwargs)
 
 def search(request, **kwargs):
     if request.method == 'POST':

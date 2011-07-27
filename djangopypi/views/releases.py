@@ -1,3 +1,4 @@
+from django.db.models.query import Q
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.forms.models import inlineformset_factory
@@ -6,6 +7,7 @@ from django.views.generic import list_detail, create_update
 from django.views.static import serve
 from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
+from django.contrib.auth.views import redirect_to_login
 
 from djangopypi import conf
 from djangopypi.decorators import user_maintains_package
@@ -21,23 +23,32 @@ def index(request, **kwargs):
     )
     return list_detail.object_list(request, **kwargs)
 
-def details(request, package, version, **kwargs):
+def details(request, package, version, simple=False, **kwargs):
+    kwargs.setdefault('template_object_name', 'release')
     release = get_object_or_404(Package, name=package).get_release(version)
-    
+
     if not release:
         raise Http404('Version %s does not exist for %s' % (version,
                                                             package,))
-    
-    kwargs.setdefault('template_object_name','release')
-    kwargs.setdefault('template_name','djangopypi/release_detail.html')
-    kwargs.setdefault('extra_context',{})
-    kwargs.setdefault('mimetype',settings.DEFAULT_CONTENT_TYPE)
-    
-    kwargs['extra_context'][kwargs['template_object_name']] = release
-        
-    return render_to_response(kwargs['template_name'], kwargs['extra_context'],
-                              context_instance=RequestContext(request),
-                              mimetype=kwargs['mimetype'])
+
+    if not simple:
+        if not request.user.is_authenticated():
+            return redirect_to_login(request.get_full_path())
+
+        kwargs.setdefault('queryset', Release.objects.filter(
+            Q(package__download_permissions=None) |
+            Q(package__download_permissions__in=request.user.groups.all())
+        ))
+
+        try:
+            return list_detail.object_detail(request, object_id=release.id,
+                                                                    **kwargs)
+        except Http404:
+            return HttpResponseForbidden('You do not have sufficient \
+                                            permissions to view this package.')
+    else:
+        kwargs.setdefault('queryset', Release.objects.all())
+        return list_detail.object_detail(request, object_id=release.id, **kwargs)
 
 def doap(request, package, version, **kwargs):
     kwargs.setdefault('template_name','djangopypi/release_doap.xml')
