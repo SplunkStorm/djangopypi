@@ -140,11 +140,17 @@ class Command(BaseCommand):
 
         try:
             new_path = os.path.join(upload_directory, os.path.basename(self._curfile))
-            if os.path.exists(new_path):
-                shutil.copy(self._curfile, upload_directory)
+            if not os.path.exists(new_path):
+                shutil.copyfile(self._curfile, new_path)
             else:
-                print >>sys.stderr, 'File already exists: %s' % new_path
-            return new_path
+                print >>sys.stderr, '\tFile already exists: %s' % new_path
+
+            media_path = os.path.join(
+                conf.RELEASE_UPLOAD_TO,
+                os.path.basename(self._curfile)
+            )
+
+            return new_path, media_path
         except IOError:
             print >>sys.stderr, 'Could not copy file to upload directory'
             return None
