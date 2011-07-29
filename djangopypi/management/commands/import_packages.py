@@ -8,9 +8,13 @@ from django.utils.datastructures import MultiValueDict
 from pkginfo import BDist, SDist
 
 from optparse import OptionParser, make_option
+import textwrap
 import sys, os, shutil
 
 class Command(BaseCommand):
+    args = '<foo-1.2.3.tar.gz bar-1.9.zip baz-2.2.egg>'
+    help = 'Imports one or more packages to the dists folder and adds ' \
+            'package metadata to the database'
 
     default_group = Group.objects.all()[0].name
     default_user = User.objects.filter(is_superuser=True)[0].username
@@ -24,9 +28,10 @@ class Command(BaseCommand):
         make_option('--download-perm-group',
             dest='download_perm_group',
             default=None,
-            help='''Group given immediate download permissions to the packages.\
-                    WARNING: If none is specified, the packages will be uploaded\
-                    as being world-accessible'''
+            help=textwrap.dedent('''\
+                Group given immediate download permissions to the packages.
+                WARNING: If no group is specified, the packages will be
+                uploaded with world-readable permissions''')
         ),
         make_option('--upload-user',
             dest='upload_user',
