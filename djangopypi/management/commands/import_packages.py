@@ -120,11 +120,16 @@ class Command(BaseCommand):
         info = []
         for f in fields:
             try:
-                info.append((f, getattr(dist_data, f)))
+                if isinstance(getattr(dist_data, f), list):
+                    info.append((f, getattr(dist_data, f)))
+                else:
+                    info.append((f, [getattr(dist_data, f)]))
             except AttributeError:
                 print >>sys.stderr, 'Could not find %s in the dist data.' % f
 
-        return dict(info)
+        package_info = dict(info)
+
+        return package_info
 
     def _copy_dist_file(self, dist_data):
         '''Move the file to the media folder, then return the new location'''
