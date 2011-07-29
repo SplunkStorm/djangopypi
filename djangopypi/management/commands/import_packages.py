@@ -3,24 +3,50 @@ from djangopypi import conf
 from django.contrib.auth.models import Group
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.utils.datastructures import MultiValueDict
 
 from pkginfo import BDist, SDist
 
-from optparse import make_option
+from optparse import OptionParser, make_option
 import sys, os, shutil
 
 class Command(BaseCommand):
 
-    DEFAULT_OWNERS = [
-        Group.objects.get_or_create(name='somegroup')[0]
-    ]
-    DEFAULT_DPS = [
-        Group.objects.get(name='somegroup')
-    ]
-    DEFAULT_UPLOADER = User.objects.get(username='someuser')
+    default_group = Group.objects.all()[0].name
+    default_user = User.objects.filter(is_superuser=True)[0].username
+
+    option_list = BaseCommand.option_list + (
+        make_option('--owner-group',
+            dest='owner_group',
+            default=default_group,
+            help='The group owner of the imported packages'
+        ),
+        make_option('--download-perm-group',
+            dest='download_perm_group',
+            default=None,
+            help='''Group given immediate download permissions to the packages.\
+                    WARNING: If none is specified, the packages will be uploaded\
+                    as being world-accessible'''
+        ),
+        make_option('--upload-user',
+            dest='upload_user',
+            default=default_user,
+            help='The user that uploaded the packages - defaults to superuser',
+        )
+    )
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
+        parser = OptionParser()
+        parser.add_options(self.option_list)
+        self.options, _ = parser.parse_args()
+        if self.options.download_perm_group:
+            self.download_perm_group = Group.objects.get(
+                                        name=self.options.download_perm_group)
+        else:
+            self.download_perm_group = None
+        self.owner_group = Group.objects.get(name=self.options.owner_group)
+        self.upload_user = User.objects.get(username=self.options.upload_user)
 
     def handle(self, *args, **kwargs):
         for filename in args:
@@ -33,6 +59,8 @@ class Command(BaseCommand):
                 elif filename.endswith('.egg'):
                     package = BDist(self._curfile)
                     self._log(filename, package, *self._add_dist(package))
+                else:
+                    print >>sys.stderr, 'Ignoring: %s:' % filename
 
             except ValueError, e:
                 print >>sys.stderr, 'Importing: %s: ERROR\n\t%s' % (filename, e.message)
@@ -53,10 +81,9 @@ class Command(BaseCommand):
         )
 
         if created_package:
-            for owner in self.DEFAULT_OWNERS:
-                package.owners.add(owner)
-            for download_perm in self.DEFAULT_DPS:
-                package.download_permissions.add(download_perm)
+            package.owners.add(self.owner_group)
+            if self.download_perm_group:
+                package.download_permissions.add(self.download_perm_group)
 
         package_info_field = self._package_info(dist_data)
 
@@ -67,7 +94,7 @@ class Command(BaseCommand):
             package_info=self._package_info(dist_data)
         )
 
-        dist_file = self._copy_dist_file(dist_data)
+        new_path, dist_file = self._copy_dist_file(dist_data)
         if dist_file:
             distribution, created_dist = Distribution.objects.get_or_create(
                 release = release,
@@ -75,7 +102,7 @@ class Command(BaseCommand):
                 md5_digest=self._md5_digest(dist_data),
                 filetype=self._get_filetype(dist_data),
                 pyversion=self._get_pyversion(dist_data),
-                uploader=self.DEFAULT_UPLOADER,
+                uploader=self.upload_user,
             )
         else:
             created_dist = False
