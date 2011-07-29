@@ -90,8 +90,6 @@ class Command(BaseCommand):
             if self.download_perm_group:
                 package.download_permissions.add(self.download_perm_group)
 
-        package_info_field = self._package_info(dist_data)
-
         release, created_release = Release.objects.get_or_create(
             package=package,
             version=dist_data.version,
