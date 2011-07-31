@@ -1,6 +1,6 @@
 from djangopypi.models import *
 from djangopypi import conf
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import User, Group
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils.datastructures import MultiValueDict
@@ -42,16 +42,30 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
+        self._parse_args()
+
+    def _parse_args(self):
         parser = OptionParser()
         parser.add_options(self.option_list)
         self.options, _ = parser.parse_args()
         if self.options.download_perm_group:
-            self.download_perm_group = Group.objects.get(
+            try:
+                self.download_perm_group = Group.objects.get(
                                         name=self.options.download_perm_group)
+            except Group.DoesNotExist:
+                raise SystemExit('The download permissions group doesn\'t exist')
         else:
             self.download_perm_group = None
-        self.owner_group = Group.objects.get(name=self.options.owner_group)
-        self.upload_user = User.objects.get(username=self.options.upload_user)
+
+        try:
+            self.owner_group = Group.objects.get(name=self.options.owner_group)
+        except Group.DoesNotExist:
+            raise SystemExit('The owner group specified doesn\'t exist')
+
+        try:
+            self.upload_user = User.objects.get(username=self.options.upload_user)
+        except User.DoesNotExist:
+            raise SystemExit('The upload user specified doesn\'t exist')
 
     def handle(self, *args, **kwargs):
         for filename in args:
