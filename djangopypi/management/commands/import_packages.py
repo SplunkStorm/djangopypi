@@ -201,6 +201,7 @@ class Command(BaseCommand):
         try:
             package_name, version = self._parse_product_filename(filename)
         except:
+            print >>sys.stderr, 'Couldn\'t parse the product filename'
             return False, False, False
 
         # Prompt the user to see if satisfactory
