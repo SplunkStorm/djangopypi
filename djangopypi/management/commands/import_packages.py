@@ -271,6 +271,6 @@ class Command(BaseCommand):
         if isinstance(dist_data, SDist):
             return 'sdist'
         elif isinstance(dist_data, BDist):
-            return 'bdist'
+            return 'bdist_egg'
         else:
             return ''
