@@ -37,6 +37,12 @@ class Command(BaseCommand):
             dest='upload_user',
             default=default_user,
             help='The user that uploaded the packages - defaults to superuser',
+        ),
+        make_option('--old-style-products',
+            dest='old_products',
+            action='store_true',
+            default=False,
+            help='Treat archives containing no PKG-INFO as old-style products',
         )
     )
 
@@ -82,7 +88,20 @@ class Command(BaseCommand):
                     print >>sys.stderr, 'Ignoring: %s:' % filename
 
             except ValueError, e:
-                print >>sys.stderr, 'Importing: %s: ERROR\n\t%s' % (filename, e.message)
+                if 'No PKG-INFO in archive' in e.message:
+                    if self.options.old_products:
+                        if filename.endswith('.tar.gz') or \
+                                                    filename.endswith('.tgz'):
+
+                            self._log(
+                                filename,
+                                None,
+                                *self._old_style_product(filename)
+                            )
+                            continue
+                print >>sys.stderr, 'Importing: %s: ERROR\n\t%s' % (
+                                                            filename, e.message)
+
 
     def _log(self, filename, package, pkg_created, release_created, dist_created):
         """ Log logic """
@@ -91,8 +110,14 @@ class Command(BaseCommand):
         else:
             result = 'FAILED'
 
-        print >>sys.stderr, 'Importing %s: %s. [Created Package(): %r. Created Release(): %r.]' % (
-                                filename, result, pkg_created, release_created)
+        if not package:
+            old_style = '[OLD STYLE PRODUCT]'
+        else:
+            old_style = ''
+
+        print >>sys.stderr, textwrap.dedent('''\
+            Importing %s %s: %s. [Created Package(): %r. Created Release(): %r.]
+            ''' % (filename, old_style, result, pkg_created, release_created))
 
     def _add_dist(self, dist_data):
         package, created_package  = Package.objects.get_or_create(
@@ -111,12 +136,12 @@ class Command(BaseCommand):
             package_info=self._package_info(dist_data)
         )
 
-        new_path, dist_file = self._copy_dist_file(dist_data)
+        new_path, dist_file = self._copy_dist_file()
         if dist_file:
             distribution, created_dist = Distribution.objects.get_or_create(
                 release = release,
                 content=dist_file,
-                md5_digest=self._md5_digest(dist_data),
+                md5_digest=self._md5_digest(),
                 filetype=self._get_filetype(dist_data),
                 pyversion=self._get_pyversion(dist_data),
                 uploader=self.upload_user,
@@ -148,7 +173,7 @@ class Command(BaseCommand):
 
         return package_info
 
-    def _copy_dist_file(self, dist_data):
+    def _copy_dist_file(self):
         '''Move the file to the media folder, then return the new location'''
         upload_directory = os.path.join(
             settings.MEDIA_ROOT,
@@ -172,7 +197,55 @@ class Command(BaseCommand):
             print >>sys.stderr, 'Could not copy file to upload directory'
             return None
 
-    def _md5_digest(self, dist_data):
+    def _old_style_product(self, filename):
+        try:
+            package_name, version = self._parse_product_filename(filename)
+        except:
+            return False, False, False
+
+        # Prompt the user to see if satisfactory
+        print 'Detected an old-style package: %s' % filename
+        print 'Using package name: %s, version: %s' % (package_name, version)
+        accepted = raw_input('Accept? [y/N] ')
+        if accepted.lower() != 'y':
+            print 'Not accepted. Skipping %s' % filename
+            return False, False, False
+
+        package, created_package = Package.objects.get_or_create(
+            name=package_name
+        )
+
+        release, created_release = Release.objects.get_or_create(
+            package=package,
+            version=version,
+            metadata_version='1.0',
+            package_info={},
+        )
+
+        new_path, dist_file = self._copy_dist_file()
+        if dist_file:
+            dist, created_dist = Distribution.objects.get_or_create(
+                release=release,
+                content=dist_file,
+                md5_digest=self._md5_digest(),
+                uploader=self.upload_user,
+            )
+
+        return created_package, created_release, created_dist
+
+    def _parse_product_filename(self, filename):
+        bn = os.path.basename(filename)
+        split_bn = bn.split('-', 1)
+
+        package_name = split_bn[0]
+
+        version_string = os.path.splitext(split_bn[1])[0]
+        if version_string[-4:] == '.tar':
+            version_string = version_string[:-4]
+
+        return package_name, version_string
+
+    def _md5_digest(self):
         import md5
 
         BLOCKSIZE = 1024*1024
