@@ -33,9 +33,10 @@ class Command(BaseCommand):
             dest='download_perm_group',
             default=None,
             help=textwrap.dedent('''\
-                Group given immediate download permissions to the packages.
-                WARNING: If no group is specified, the packages will be
-                uploaded with world-readable permissions''')
+                A comma-separated list of Group names given immediate download
+                permissions to the packages. WARNING: If no group is specified,
+                the packages will be uploaded with world-readable permissions'''
+            )
         ),
         make_option('--upload-user',
             dest='upload_user',
@@ -88,12 +89,15 @@ class Command(BaseCommand):
         self.options, _ = parser.parse_args()
         if self.options.download_perm_group:
             try:
-                self.download_perm_group = Group.objects.get(
-                                        name=self.options.download_perm_group)
+                self.download_perm_groups = []
+                for group in self.options.download_perm_group.split(','):
+                    self.download_perm_groups.append(
+                        Group.objects.get(name=group)
+                    )
             except Group.DoesNotExist:
                 raise SystemExit('The download permissions group doesn\'t exist')
         else:
-            self.download_perm_group = None
+            self.download_perm_groups = []
 
         try:
             self.owner_group = Group.objects.get(name=self.options.owner_group)
@@ -147,7 +151,7 @@ class Command(BaseCommand):
             old_style = ''
 
         log_string = textwrap.dedent('''\
-            Importing %s %s: %s. [Created Package(): %r. Created Release(): %r.]
+            Importing %s %s: %s. [Created Package(): %r. Created Release(): %r.]\
             ''' % (filename, old_style, result, pkg_created, release_created))
 
         if dist_created:
@@ -162,8 +166,8 @@ class Command(BaseCommand):
 
         if created_package:
             package.owners.add(self.owner_group)
-            if self.download_perm_group:
-                package.download_permissions.add(self.download_perm_group)
+            for group in self.download_perm_groups:
+                package.download_permissions.add(group)
 
         release, created_release = Release.objects.get_or_create(
             package=package,
