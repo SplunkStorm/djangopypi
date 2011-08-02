@@ -11,10 +11,14 @@ from optparse import OptionParser, make_option
 import textwrap
 import sys, os, shutil
 
+import logging
+
 class Command(BaseCommand):
     args = '<foo-1.2.3.tar.gz bar-1.9.zip baz-2.2.egg>'
     help = 'Imports one or more packages to the dists folder and adds ' \
             'package metadata to the database'
+
+    LOG_FILENAME = '/tmp/package_import.log'
 
     default_group = Group.objects.all()[0].name
     default_user = User.objects.filter(is_superuser=True)[0].username
@@ -29,9 +33,10 @@ class Command(BaseCommand):
             dest='download_perm_group',
             default=None,
             help=textwrap.dedent('''\
-                Group given immediate download permissions to the packages.
-                WARNING: If no group is specified, the packages will be
-                uploaded with world-readable permissions''')
+                A comma-separated list of Group names given immediate download
+                permissions to the packages. WARNING: If no group is specified,
+                the packages will be uploaded with world-readable permissions'''
+            )
         ),
         make_option('--upload-user',
             dest='upload_user',
@@ -43,12 +48,40 @@ class Command(BaseCommand):
             action='store_true',
             default=False,
             help='Treat archives containing no PKG-INFO as old-style products',
-        )
+        ),
+        make_option('--log',
+            dest='log_file',
+            default=LOG_FILENAME,
+            help='Log the migration process to a file',
+        ),
     )
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
         self._parse_args()
+        self._configure_log()
+
+    def _configure_log(self):
+        self.log = logging.getLogger(__file__)
+
+        formatter = logging.Formatter(
+                    "%(asctime)s - %(filename)s - %(levelname)s - %(message)s")
+
+        # Log everything to the file log
+        file_log = logging.FileHandler(self.options.log_file)
+        file_log.setLevel(logging.DEBUG)
+
+        # Log only INFO or higher to console
+        console_log = logging.StreamHandler()
+        console_log.setLevel(logging.INFO)
+
+        file_log.setFormatter(formatter)
+        console_log.setFormatter(formatter)
+
+        self.log.addHandler(file_log)
+        self.log.addHandler(console_log)
+
+        self.log.setLevel(logging.DEBUG)
 
     def _parse_args(self):
         parser = OptionParser()
@@ -56,12 +89,15 @@ class Command(BaseCommand):
         self.options, _ = parser.parse_args()
         if self.options.download_perm_group:
             try:
-                self.download_perm_group = Group.objects.get(
-                                        name=self.options.download_perm_group)
+                self.download_perm_groups = []
+                for group in self.options.download_perm_group.split(','):
+                    self.download_perm_groups.append(
+                        Group.objects.get(name=group)
+                    )
             except Group.DoesNotExist:
                 raise SystemExit('The download permissions group doesn\'t exist')
         else:
-            self.download_perm_group = None
+            self.download_perm_groups = []
 
         try:
             self.owner_group = Group.objects.get(name=self.options.owner_group)
@@ -74,7 +110,10 @@ class Command(BaseCommand):
             raise SystemExit('The upload user specified doesn\'t exist')
 
     def handle(self, *args, **kwargs):
+        self.log.debug('import packages script started')
         for filename in args:
+            self.log.debug('File: %s' % filename)
+
             self._curfile = filename
             try:
                 if filename.endswith('.zip') or filename.endswith('.tar.gz') or \
@@ -85,22 +124,18 @@ class Command(BaseCommand):
                     package = BDist(self._curfile)
                     self._log(filename, package, *self._add_dist(package))
                 else:
-                    print >>sys.stderr, 'Ignoring: %s:' % filename
+                    self.log.debug('Ignoring: %s:' % filename)
 
             except ValueError, e:
-                if 'No PKG-INFO in archive' in e.message:
-                    if self.options.old_products:
-                        if filename.endswith('.tar.gz') or \
-                                                    filename.endswith('.tgz'):
-
-                            self._log(
-                                filename,
-                                None,
-                                *self._old_style_product(filename)
-                            )
-                            continue
-                print >>sys.stderr, 'Importing: %s: ERROR\n\t%s' % (
-                                                            filename, e.message)
+                if 'No PKG-INFO in archive' in e.message and \
+                                            self.options.old_products and \
+                                            (filename.endswith('.tar.gz') or \
+                                            filename.endswith('.tgz')):
+                    self._log(filename, None, *self._old_style_product(filename))
+                    continue
+                self.log.error('Could not import %s: %s' % (
+                                                        filename, e.message))
+        self.log.debug('import packages script completed')
 
 
     def _log(self, filename, package, pkg_created, release_created, dist_created):
@@ -115,9 +150,14 @@ class Command(BaseCommand):
         else:
             old_style = ''
 
-        print >>sys.stderr, textwrap.dedent('''\
-            Importing %s %s: %s. [Created Package(): %r. Created Release(): %r.]
+        log_string = textwrap.dedent('''\
+            Importing %s %s: %s. [Created Package(): %r. Created Release(): %r.]\
             ''' % (filename, old_style, result, pkg_created, release_created))
+
+        if dist_created:
+            self.log.info(log_string)
+        else:
+            self.log.critical(log_string)
 
     def _add_dist(self, dist_data):
         package, created_package  = Package.objects.get_or_create(
@@ -126,8 +166,8 @@ class Command(BaseCommand):
 
         if created_package:
             package.owners.add(self.owner_group)
-            if self.download_perm_group:
-                package.download_permissions.add(self.download_perm_group)
+            for group in self.download_perm_groups:
+                package.download_permissions.add(group)
 
         release, created_release = Release.objects.get_or_create(
             package=package,
@@ -167,7 +207,7 @@ class Command(BaseCommand):
                 else:
                     info.append((f, [getattr(dist_data, f)]))
             except AttributeError:
-                print >>sys.stderr, 'Could not find %s in the dist data.' % f
+                self.log.debug('Could not find %s in the dist data.' % f)
 
         package_info = dict(info)
 
@@ -185,7 +225,7 @@ class Command(BaseCommand):
             if not os.path.exists(new_path):
                 shutil.copyfile(self._curfile, new_path)
             else:
-                print >>sys.stderr, '\tFile already exists: %s' % new_path
+                self.log.warn('File already exists: %s' % new_path)
 
             media_path = os.path.join(
                 conf.RELEASE_UPLOAD_TO,
@@ -194,13 +234,14 @@ class Command(BaseCommand):
 
             return new_path, media_path
         except IOError:
-            print >>sys.stderr, 'Could not copy file to upload directory'
+            self.log.debug('Could not copy file to upload directory')
             return None
 
     def _old_style_product(self, filename):
         try:
             package_name, version = self._parse_product_filename(filename)
         except:
+            self.log.error('Couldn\'t parse the product filename "%s"' % filename)
             return False, False, False
 
         # Prompt the user to see if satisfactory
