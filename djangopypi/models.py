@@ -1,6 +1,8 @@
 import os
+import logging
 
 from django.db import models
+from django.core.files.storage import FileSystemStorage
 from django.utils.translation import ugettext_lazy as _
 from django.utils import simplejson as json
 from django.utils.datastructures import MultiValueDict
@@ -151,7 +153,13 @@ class Release(models.Model):
 class Distribution(models.Model):
     release = models.ForeignKey(Release, related_name="distributions",
                                 editable=False)
-    content = models.FileField(upload_to=conf.RELEASE_UPLOAD_TO)
+    content = models.FileField(
+        upload_to='.',
+        storage=FileSystemStorage(
+            location=settings.DJANGOPYPI_RELEASE_UPLOAD_TO,
+            base_url=settings.DJANGOPYPI_RELEASE_URL,
+        ),
+    )
     md5_digest = models.CharField(max_length=32, blank=True, editable=False)
     filetype = models.CharField(max_length=32, blank=False,
                                 choices=conf.DIST_FILE_TYPES)

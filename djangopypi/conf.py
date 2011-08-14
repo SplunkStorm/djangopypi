@@ -3,10 +3,11 @@ from django.conf import settings
 # This is disabled on pypi.python.org, can be useful if you make mistakes
 ALLOW_VERSION_OVERWRITE = False
 
-""" The upload_to argument for the file field in releases. This can either be 
-a string for a path relative to your media folder or a callable. For more 
-information, see http://docs.djangoproject.com/ """
+# The upload path for dist files. NOT relative to the media folder.
 RELEASE_UPLOAD_TO = 'dists'
+
+# The URL that dist files are downloaded from
+RELEASE_URL = '/packages/'
 
 OS_NAMES = (
     ("aix", "AIX"),
