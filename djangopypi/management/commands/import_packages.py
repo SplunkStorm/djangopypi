@@ -215,9 +215,10 @@ class Command(BaseCommand):
 
     def _copy_dist_file(self):
         '''Move the file to the media folder, then return the new location'''
+        content_field = Distribution._meta.get_field('content')
+
         upload_directory = os.path.join(
-            settings.MEDIA_ROOT,
-            conf.RELEASE_UPLOAD_TO
+            content_field.storage.location, content_field.upload_to
         )
 
         try:
