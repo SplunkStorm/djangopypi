@@ -217,25 +217,26 @@ class Command(BaseCommand):
         '''Move the file to the media folder, then return the new location'''
         content_field = Distribution._meta.get_field('content')
 
-        upload_directory = os.path.join(
-            content_field.storage.location, content_field.upload_to
+        upload_path = os.path.join(
+            content_field.storage.location,
+            content_field.upload_to(None, os.path.basename(self._curfile))
         )
 
         try:
-            new_path = os.path.join(upload_directory, os.path.basename(self._curfile))
-            if not os.path.exists(new_path):
-                shutil.copyfile(self._curfile, new_path)
+            if not os.path.exists(upload_path):
+                # Create the directory if necessary
+                upload_folder = os.path.dirname(upload_path)
+                if not os.path.exists(upload_folder):
+                    os.mkdir(upload_folder)
+                shutil.copyfile(self._curfile, upload_path)
             else:
-                self.log.warn('File already exists: %s' % new_path)
+                self.log.warn('File already exists: %s' % upload_path)
 
-            media_path = os.path.join(
-                conf.RELEASE_UPLOAD_TO,
-                os.path.basename(self._curfile)
-            )
+            media_path = content_field.upload_to(None, os.path.basename(self._curfile))
 
-            return new_path, media_path
+            return upload_path, media_path
         except IOError:
-            self.log.debug('Could not copy file to upload directory')
+            self.log.critical('Could not copy file to upload directory %s' % upload_path)
             return None
 
     def _old_style_product(self, filename):
