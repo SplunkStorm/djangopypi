@@ -154,7 +154,7 @@ class Distribution(models.Model):
     release = models.ForeignKey(Release, related_name="distributions",
                                 editable=False)
     content = models.FileField(
-        upload_to='.',
+        upload_to=lambda i, f: os.path.join(f[:1].lower(), f),
         storage=FileSystemStorage(
             location=settings.DJANGOPYPI_RELEASE_UPLOAD_TO,
             base_url=settings.DJANGOPYPI_RELEASE_URL,
