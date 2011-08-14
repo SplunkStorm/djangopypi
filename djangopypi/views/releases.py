@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models.query import Q
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -205,12 +207,15 @@ def upload_file(request, package, version, **kwargs):
                               mimetype=kwargs['mimetype'])
 
 def download_dist(request, path, document_root=None, show_indexes=False):
+    log = logging.getLogger(__name__)
+
     can_serve = False
     # Find the related release, and its related package.
     dist = get_object_or_404(Distribution, content=path)
     # Get a list of the groups that can download this package
     package = dist.release.package
     download_permissions = package.download_permissions.all()
+    username = 'Anonymous'
 
     if download_permissions.count() == 0:
         # If no download permissions, anon users can access the package
@@ -230,11 +235,16 @@ def download_dist(request, path, document_root=None, show_indexes=False):
             user_groups = user.groups.all()
             if len(user_groups) > 0:
                 if user_groups[0] in download_permissions:
+                    username = user.username
                     can_serve = True
 
     if can_serve:
+        log.info('user: %s package: %s downloaded' % (username, package.name))
         return serve(request, path, document_root, show_indexes)
     else:
+        log.info('user: %s package: %s download permission denied' % (
+            username, package.name
+        ))
         return HttpResponseForbidden(
             'You are not authorised to download %s' % package.name
         )

@@ -5,6 +5,9 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils import simplejson as json
 from django.utils.datastructures import MultiValueDict
 from django.contrib.auth.models import User, Group
+from django.contrib.auth.signals import user_logged_in
+from django.dispatch import receiver
+from django.conf import settings
 
 from djangopypi import conf
 
@@ -200,6 +203,11 @@ class Review(models.Model):
     class Meta:
         verbose_name = _(u'release review')
         verbose_name_plural = _(u'release reviews')
+
+@receiver(user_logged_in)
+def log_authentication(sender, request, user, *args, **kwargs):
+    logger = logging.getLogger('djangopypi.auth_logger')
+    logger.info('user: %s authenticated' % user.username)
 
 try:
     from south.modelsinspector import add_introspection_rules
