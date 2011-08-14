@@ -12,6 +12,9 @@ information, see http://docs.djangoproject.com/ """
 if not hasattr(settings,'DJANGOPYPI_RELEASE_UPLOAD_TO'):
     settings.DJANGOPYPI_RELEASE_UPLOAD_TO = 'dists'
 
+if not hasattr(settings, 'DJANGOPYPI_RELEASE_URL'):
+    settings.DJANGOPYPI_RELEASE_URL = '/packages/'
+
 if not hasattr(settings,'DJANGOPYPI_OS_NAMES'):
     settings.DJANGOPYPI_OS_NAMES = (
         ("aix", "AIX"),
