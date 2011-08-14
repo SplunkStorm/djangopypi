@@ -39,11 +39,9 @@ urlpatterns = patterns("djangopypi.views",
         'releases.upload_file',name='djangopypi-release-upload-file'),
 
     url(
-        r'^%s(?P<path>%s.*)$' % (
-            settings.MEDIA_URL[1:],
-            settings.DJANGOPYPI_RELEASE_UPLOAD_TO
-        ),
-        'releases.download_dist', {'document_root': settings.MEDIA_ROOT},
-        name='djangopypi-download'
+        r'^%s/(?P<path>.*)$' % (settings.DJANGOPYPI_RELEASE_URL.strip('/')),
+        'releases.download_dist', {
+            'document_root': settings.DJANGOPYPI_RELEASE_UPLOAD_TO
+        }, name='djangopypi-download'
     ),
 )
