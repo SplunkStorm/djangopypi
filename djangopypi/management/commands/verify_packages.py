@@ -16,6 +16,12 @@ class Command(BaseCommand):
             default=None,
             help='Log the results of the script to a file',
         ),
+        make_option('--remove',
+            dest='remove',
+            default=False,
+            action='store_true',
+            help='Remove any database entries for the missing distributions'
+        ),
     )
 
     def __init__(self, *args, **kwargs):
@@ -62,22 +68,37 @@ class Command(BaseCommand):
         time_stamp = datetime.datetime.now().strftime('%c')
         self._log.info('Started verification %s' % time_stamp)
 
+        dist_count = Distribution.objects.count()
         okay = 0
 
         for dist in Distribution.objects.all():
             if not dist.content.storage.exists(dist.content.path):
                 self.log(dist, 'Distribution not found')
+                if self.options.remove:
+                    self.remove_dist(dist)
             else:
                 if not self.valid_md5(dist):
                     self.log(dist, 'Distribution md5 mismatch')
                 else:
                     okay += 1
 
-
         time_stamp = datetime.datetime.now().strftime('%c')
         self._log.info('Finished verification at %s: %d/%d correct' % (
-            time_stamp, okay, Distribution.objects.count()
+            time_stamp, okay, dist_count
         ))
+
+    def remove_dist(self, dist):
+        release = dist.release
+        self._log.info('Deleting distribution %r from database' % dist)
+        dist.delete()
+        if release.distributions.count() == 0:
+            package = release.package
+            self._log.info('Deleting release %r from database' % release)
+            release.delete()
+            if package.releases.count() == 0:
+                self._log.info('Deleting package %r from database' % package)
+                package.delete()
+
 
     def valid_md5(self, dist):
         assert dist.content.storage.exists(dist.content.path)
