@@ -27,6 +27,11 @@ class FullDeletingModelAdmin(admin.ModelAdmin):
 
 class PackageModelAdmin(FullDeletingModelAdmin):
     actions = [make_anonymous]
+    list_display = (
+        'name',
+    )
+    search_fields = ('name',)
+
 
 admin.site.register(Package,PackageModelAdmin)
 admin.site.register(Release,FullDeletingModelAdmin)
