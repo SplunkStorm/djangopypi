@@ -38,5 +38,6 @@ setup(
     install_requires=[
         'setuptools',
         'docutils',
+        'pkginfo',
     ],
 )
