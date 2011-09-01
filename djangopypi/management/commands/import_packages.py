@@ -4,6 +4,8 @@ from django.contrib.auth.models import User, Group
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils.datastructures import MultiValueDict
+from django.db.utils import IntegrityError
+from django.db import transaction
 
 from pkginfo import BDist, SDist
 
@@ -159,35 +161,63 @@ class Command(BaseCommand):
         else:
             self.log.critical(log_string)
 
+    @transaction.autocommit
     def _add_dist(self, dist_data):
-        package, created_package  = Package.objects.get_or_create(
-            name=dist_data.name,
-        )
+
+        try:
+            package, created_package  = Package.objects.get_or_create(
+                name=dist_data.name,
+            )
+        except IntegrityError:
+            transaction.rollback()
+            self.log.critical('Cannot add package name %r: file %s error' % (
+                              dist_data.name, self._curfile))
+            return False, False, False
 
         if created_package:
             package.owners.add(self.owner_group)
             for group in self.download_perm_groups:
                 package.download_permissions.add(group)
 
-        release, created_release = Release.objects.get_or_create(
-            package=package,
-            version=dist_data.version,
-            metadata_version=dist_data.metadata_version,
-            package_info=self._package_info(dist_data)
-        )
-
-        new_path, dist_file = self._copy_dist_file()
-        if dist_file:
-            distribution, created_dist = Distribution.objects.get_or_create(
-                release = release,
-                content=dist_file,
-                md5_digest=self._md5_digest(),
-                filetype=self._get_filetype(dist_data),
-                pyversion=self._get_pyversion(dist_data),
-                uploader=self.upload_user,
+        created_release = False
+        try:
+            release = Release.objects.get(
+                version=dist_data.version,
+                package=package,
             )
-        else:
-            created_dist = False
+        except Release.DoesNotExist:
+            release = Release.objects.create(
+                package=package,
+                version=dist_data.version,
+                metadata_version=dist_data.metadata_version,
+                package_info=self._package_info(dist_data)
+            )
+            created_release = True
+
+        created_dist = False
+        new_path, dist_file = self._copy_dist_file()
+
+        try:
+            distribution = Distribution.objects.get(
+                release=release,
+                content=dist_file,
+            )
+        except Distribution.DoesNotExist:
+            if dist_file:
+                try:
+                    distribution = Distribution.objects.create(
+                        release = release,
+                        content=dist_file,
+                        md5_digest=self._md5_digest(),
+                        filetype=self._get_filetype(dist_data),
+                        pyversion=self._get_pyversion(dist_data),
+                        uploader=self.upload_user,
+                    )
+                    created_dist = True
+                except IntegrityError:
+                    self.log.error('Could not import %s: Already have this ' \
+                                   'spec package.' % (self._curfile,))
+                    transaction.rollback()
 
         return created_package, created_release, created_dist
 
