@@ -17,11 +17,22 @@ from djangopypi.models import Package, Release, Distribution
 from djangopypi.http import login_basic_auth, HttpResponseUnauthorized
 from djangopypi.forms import ReleaseForm, DistributionUploadForm
 
+def user_releases(user):
+    if user.is_superuser:
+        return Release.objects.all()
+    else:
+        return Release.objects.filter(
+            Q(package__download_permissions=None) |
+            Q(package__download_permissions__in=user.groups.all())
+        )
+
 def index(request, **kwargs):
+    if not request.user.is_authenticated():
+        return redirect_to_login(request.get_full_path())
     kwargs.setdefault('template_object_name','release')
     kwargs.setdefault(
         'queryset',
-        Release.objects.filter(hidden=False).order_by('package__name')
+        user_releases(request.user).filter(hidden=False).order_by('package__name')
     )
     return list_detail.object_list(request, **kwargs)
 
@@ -37,10 +48,7 @@ def details(request, package, version, simple=False, **kwargs):
         if not request.user.is_authenticated():
             return redirect_to_login(request.get_full_path())
 
-        kwargs.setdefault('queryset', Release.objects.filter(
-            Q(package__download_permissions=None) |
-            Q(package__download_permissions__in=request.user.groups.all())
-        ))
+        kwargs.setdefault('queryset', user_releases(request.user))
 
         try:
             return list_detail.object_detail(request, object_id=release.id,
@@ -234,7 +242,9 @@ def download_dist(request, path, document_root=None, show_indexes=False):
             # in the package's download_permissions
             user_groups = user.groups.all()
             if len(user_groups) > 0:
-                if user_groups[0] in download_permissions:
+                if user_groups[0] in download_permissions or \
+                   user_groups[0] in package.owners.all() or \
+                   user.is_superuser:
                     username = user.username
                     can_serve = True
 

@@ -8,9 +8,20 @@ from django.views.generic import list_detail, create_update
 from django.contrib.auth.views import redirect_to_login
 
 from djangopypi import conf
+from djangopypi.http import login_basic_auth, HttpResponseUnauthorized
 from djangopypi.decorators import user_owns_package, user_maintains_package
 from djangopypi.models import Package, Release
 from djangopypi.forms import SimplePackageSearchForm, PackageForm
+
+def user_packages(user):
+    ''' Return a list of packages that the user has permission to download '''
+    if user.is_superuser:
+        return Package.objects.all()
+    else:
+        return Package.objects.filter(
+            Q(download_permissions=None) |
+            Q(download_permissions__in=user.groups.all())
+        )
 
 def index(request, **kwargs):
     kwargs.setdefault('template_object_name', 'package')
@@ -18,7 +29,16 @@ def index(request, **kwargs):
     return list_detail.object_list(request, **kwargs)
 
 def simple_index(request, **kwargs):
+    if request.user.is_authenticated():
+        user = request.user
+    else:
+        user = login_basic_auth(request)
+
+    if user is None:
+        return HttpResponseUnauthorized('pypi')
+
     kwargs.setdefault('template_name', 'djangopypi/package_list_simple.html')
+    kwargs['queryset'] = user_packages(user)
     return index(request, **kwargs)
 
 def details(request, package, simple=False, **kwargs):
@@ -28,20 +48,20 @@ def details(request, package, simple=False, **kwargs):
     if not simple:
         if not request.user.is_authenticated():
             return redirect_to_login(request.get_full_path())
-
-        kwargs.setdefault('queryset', Package.objects.filter(
-            Q(download_permissions=None) |
-            Q(download_permissions__in=request.user.groups.all())
-        ))
-
-        try:
-            return list_detail.object_detail(request, object_id=package, **kwargs)
-        except Http404:
-            return HttpResponseForbidden('You do not have sufficient \
-                                            permissions to view this package')
+        else:
+            user = request.user
     else:
-        kwargs.setdefault('queryset', Package.objects.all())
+        user = login_basic_auth(request)
+        if not user:
+            return HttpResponseUnauthorized('pypi')
+
+    kwargs.setdefault('queryset', user_packages(user))
+
+    try:
         return list_detail.object_detail(request, object_id=package, **kwargs)
+    except Http404:
+        return HttpResponseForbidden('You do not have sufficient \
+                                      permissions to view this package')
 
 def simple_details(request, package, **kwargs):
     kwargs.setdefault('template_name', 'djangopypi/package_detail_simple.html')
