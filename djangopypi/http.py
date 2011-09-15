@@ -89,4 +89,5 @@ def login_basic_auth(request):
         return
     auth = auth.strip().decode("base64")
     username, password = auth.split(":", 1)
-    return authenticate(username=username, password=password)
+    user = authenticate(username=username, password=password)
+    return user
