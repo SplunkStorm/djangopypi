@@ -214,6 +214,13 @@ def upload_file(request, package, version, **kwargs):
                               context_instance=RequestContext(request),
                               mimetype=kwargs['mimetype'])
 
+def bootstrap_index(request):
+    return list_detail.object_list(
+        request,
+        queryset=Release.objects.filter(package__download_permissions=None),
+        template_name='djangopypi/bootstrap.html',
+    )
+
 def download_dist(request, path, document_root=None, show_indexes=False):
     log = logging.getLogger(__name__)
 
