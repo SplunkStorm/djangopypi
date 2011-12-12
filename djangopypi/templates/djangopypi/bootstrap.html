@@ -1,0 +1,16 @@
+<html>
+<head>
+    <title>Anonymous Package Index</title>
+</head>
+<body>
+{% if object_list %}
+    {% for release in object_list %}
+        {% for distribution in release.distributions.all %}
+            <a href="{{ distribution.content.url }}">{{ distribution }}</a><br />
+        {% endfor %}
+    {% endfor %}
+{% else %}
+    <h1>There are no anonymous packages available.</h1>
+    {% endif %}
+</body>
+</html>
