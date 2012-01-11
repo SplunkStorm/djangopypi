@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import User
 from djangopypi.models import Package, Release, Classifier, \
                               Distribution, Review
 
@@ -50,6 +52,28 @@ class PackageModelAdmin(FullDeletingModelAdmin):
     )
     search_fields = ('name',)
 
+## Following only valid in Django 1.4
+#class GroupFilter(SimpleListFilter):
+#    title = 'Primary Group'
+#    parameter_name = 'primary_group'
+#
+#    def lookups(self, request, model_admin):
+#        return [(group.name, group.id) for group in Group.objects.all()]
+#
+#    def queryset(self, request, queryset):
+#        try:
+#            group = Group.objects.get(self.value)
+#            group_id = group.id
+#        except Group.DoesNotExist:
+#            group_id = None
+#
+#        return queryset.filter(groups__id=group_id)
+#
+#class FilterByGroupUserAdmin(UserAdmin):
+#    list_filter = UserAdmin.list_filter + (GroupFilter,)
+
+#admin.site.unregister(User)
+#admin.site.register(User, FilterByGroupUserAdmin)
 
 admin.site.register(Package,PackageModelAdmin)
 admin.site.register(Release,FullDeletingModelAdmin)
