@@ -52,6 +52,15 @@ class PackageModelAdmin(FullDeletingModelAdmin):
     )
     search_fields = ('name',)
 
+def make_staff(modeladmin, request, queryset):
+    count = 0
+    for obj in queryset:
+        if isinstance(obj, User):
+            obj.is_staff = True
+            obj.save()
+            count += 1
+    modeladmin.message_user(request, "Made %d users staff" % count)
+
 ## Following only valid in Django 1.4
 #class GroupFilter(SimpleListFilter):
 #    title = 'Primary Group'
@@ -69,11 +78,14 @@ class PackageModelAdmin(FullDeletingModelAdmin):
 #
 #        return queryset.filter(groups__id=group_id)
 #
-#class FilterByGroupUserAdmin(UserAdmin):
-#    list_filter = UserAdmin.list_filter + (GroupFilter,)
 
-#admin.site.unregister(User)
-#admin.site.register(User, FilterByGroupUserAdmin)
+class EnhancedUserAdmin(UserAdmin):
+    # list_filter = UserAdmin.list_filter + (GroupFilter,)
+
+    actions = [make_staff,]
+
+admin.site.unregister(User)
+admin.site.register(User, EnhancedUserAdmin)
 
 admin.site.register(Package,PackageModelAdmin)
 admin.site.register(Release,FullDeletingModelAdmin)
