@@ -118,15 +118,28 @@ def register_or_upload(request):
         created_package = True
         
     if not request.user.is_superuser:
-        if group != package.owners.get():
-            logger.info("'%s' is in the group '%s', only members of '%s' can upload new versions of this package." % (username, package.owners.get().name, group.name))
-            return HttpResponseForbidden("'%s' is in the group '%s', only members of '%s' can upload new versions of this package." % (username, package.owners.get().name, group.name))
+        if not group in package.owners.all():
+            logger.info(
+                "'%s' is in the group '%s', only members of '%s' can upload new " \
+                "versions of this package." % (
+                    username,
+                    ",".join([p.name for p in package.owners.all()]),
+                    group.name
+                )
+            )
+            return HttpResponseForbidden(
+                "'%s' is in the group '%s', only members of '%s' can upload " \
+                "new versions of this package." % (
+                    username,
+                    ",".join([p.name for p in package.owners.all()]),
+                    group.name
+                )
+            )
     
     version = request.POST.get('version', None)
     if version:
         version = version.strip()
     
-   
     release, created = Release.objects.get_or_create(package=package,
                                                      version=version)
 
