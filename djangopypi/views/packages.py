@@ -20,6 +20,7 @@ def user_packages(user):
     else:
         return Package.objects.filter(
             Q(download_permissions=None) |
+            Q(allow_authenticated=True) |
             Q(download_permissions__in=user.groups.all())
         )
 

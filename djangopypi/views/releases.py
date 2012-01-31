@@ -23,6 +23,7 @@ def user_releases(user):
     else:
         return Release.objects.filter(
             Q(package__download_permissions=None) |
+            Q(package__allow_authenticated=True) |
             Q(package__download_permissions__in=user.groups.all())
         )
 
