@@ -70,6 +70,12 @@ class Package(models.Model):
             selecting no groups at all will allow anyone access to the package.
         """
     )
+    allow_authenticated = models.BooleanField(
+        default=False,
+        verbose_name="Any Authenticated Users Can Download",
+        help_text="Allow any logged-in users to download the package, " \
+                  "ignoring any download permissions present in the field above"
+    )
     maintainers = models.ManyToManyField(Group, blank=True,
                                          related_name="packages_maintained")
 
