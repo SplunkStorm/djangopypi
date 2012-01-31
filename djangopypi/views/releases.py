@@ -233,7 +233,7 @@ def download_dist(request, path, document_root=None, show_indexes=False):
     download_permissions = package.download_permissions.all()
     username = 'Anonymous'
 
-    if download_permissions.count() == 0:
+    if download_permissions.count() == 0 and package.allow_authenticated == False:
         # If no download permissions, anon users can access the package
         can_serve = True
     else:
