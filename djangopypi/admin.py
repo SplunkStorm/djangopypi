@@ -24,10 +24,8 @@ make_anonymous.short_description = "Make packages anonymous"
 def available_to_authed_users(modeladmin, request, queryset):
     for obj in queryset:
         if isinstance(obj, Package):
-            obj.download_permissions.clear()
-            for group in Group.objects.all():
-                if not group in obj.download_permissions.all():
-                    obj.download_permissions.add(group)
+            obj.allow_authenticated = True
+            obj.save()
     modeladmin.message_user(request,
         "Made %s packages available only to authenticated users." % (
             queryset.count()
