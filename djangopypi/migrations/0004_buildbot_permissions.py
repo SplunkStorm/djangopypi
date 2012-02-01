@@ -11,7 +11,7 @@ class Migration(DataMigration):
 
     def forwards(self, orm):
         "Write your forwards methods here."
-        buildbot_group = Group.objects.get_or_create(name='buildbot')
+        buildbot_group = Group.objects.get_or_create(name='buildbot')[0]
 
         for package in Package.objects.all():
             if package.download_permissions.count() > 0:
@@ -20,7 +20,7 @@ class Migration(DataMigration):
 
     def backwards(self, orm):
         "Write your backwards methods here."
-        buildbot_group = Group.objects.get_or_create(name='buildbot')
+        buildbot_group = Group.objects.get_or_create(name='buildbot')[0]
 
         for package in Package.objects.all():
             if buildbot_group in package.download_permissions.all():
