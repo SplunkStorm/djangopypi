@@ -218,7 +218,10 @@ def upload_file(request, package, version, **kwargs):
 def bootstrap_index(request):
     return list_detail.object_list(
         request,
-        queryset=Release.objects.filter(package__download_permissions=None),
+        queryset=Release.objects.filter(
+            package__download_permissions=None,
+            package__allow_authenticated=False,
+        ),
         template_name='djangopypi/bootstrap.html',
     )
 
