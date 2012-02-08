@@ -22,7 +22,7 @@ def user_packages(user):
             Q(download_permissions=None) |
             Q(allow_authenticated=True) |
             Q(download_permissions__in=user.groups.all())
-        )
+        ).distinct()
 
 def index(request, **kwargs):
     kwargs.setdefault('template_object_name', 'package')

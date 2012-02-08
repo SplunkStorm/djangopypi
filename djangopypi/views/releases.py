@@ -25,7 +25,7 @@ def user_releases(user):
             Q(package__download_permissions=None) |
             Q(package__allow_authenticated=True) |
             Q(package__download_permissions__in=user.groups.all())
-        )
+        ).distinct()
 
 def index(request, **kwargs):
     if not request.user.is_authenticated():
