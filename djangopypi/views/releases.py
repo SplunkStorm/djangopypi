@@ -6,7 +6,6 @@ from django.core.urlresolvers import reverse
 from django.forms.models import inlineformset_factory
 from django.http import Http404, HttpResponseForbidden
 from django.views.generic import list_detail, create_update
-from django.views.static import serve
 from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
 from django.contrib.auth.views import redirect_to_login
@@ -16,6 +15,9 @@ from djangopypi.decorators import user_maintains_package
 from djangopypi.models import Package, Release, Distribution
 from djangopypi.http import login_basic_auth, HttpResponseUnauthorized
 from djangopypi.forms import ReleaseForm, DistributionUploadForm
+
+from sendfile import sendfile
+
 
 def user_releases(user):
     if user.is_superuser:
@@ -261,7 +263,7 @@ def download_dist(request, path, document_root=None, show_indexes=False):
 
     if can_serve:
         log.info('user: %s package: %s downloaded' % (username, package.name))
-        return serve(request, path, document_root, show_indexes)
+        return sendfile(request, os.path.join(settings.DJANGOPYPI_RELEASE_UPLOAD_TO, dist.name))
     else:
         log.info('user: %s package: %s download permission denied' % (
             username, package.name
@@ -269,3 +271,4 @@ def download_dist(request, path, document_root=None, show_indexes=False):
         return HttpResponseForbidden(
             'You are not authorised to download %s' % package.name
         )
+

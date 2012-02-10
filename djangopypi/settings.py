@@ -125,4 +125,10 @@ if not hasattr(settings, 'DJANGOPYPI_PROXY_BASE_URL'):
 
 if not hasattr(settings, 'DJANGOPYPI_PROXY_MISSING'):
     settings.DJANGOPYPI_PROXY_MISSING = False
-    
+
+
+""" If deployment doesnt opt to use a nice sensible sendfile implementation,
+at least use the simple one """
+if not hasattr(settings, 'SENDFILE_BACKEND'):
+    settings.SENDFILE_BACKEND = 'sendfile.backends.simple'
+
