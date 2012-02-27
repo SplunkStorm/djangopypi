@@ -39,5 +39,6 @@ setup(
         'setuptools',
         'docutils',
         'pkginfo',
+        'django-sendfile',
     ],
 )
