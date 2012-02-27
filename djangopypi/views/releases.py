@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.db.models.query import Q
 from django.conf import settings
@@ -263,7 +264,7 @@ def download_dist(request, path, document_root=None, show_indexes=False):
 
     if can_serve:
         log.info('user: %s package: %s downloaded' % (username, package.name))
-        return sendfile(request, os.path.join(settings.DJANGOPYPI_RELEASE_UPLOAD_TO, dist.name))
+        return sendfile(request, os.path.join(settings.DJANGOPYPI_RELEASE_UPLOAD_TO, dist.content.path))
     else:
         log.info('user: %s package: %s download permission denied' % (
             username, package.name
