@@ -123,8 +123,8 @@ def register_or_upload(request):
                 "'%s' is in the group '%s', only members of '%s' can upload new " \
                 "versions of this package." % (
                     username,
+                    group.name,
                     ",".join([p.name for p in package.owners.all()]),
-                    group.name
                 )
             )
             return HttpResponseForbidden(
