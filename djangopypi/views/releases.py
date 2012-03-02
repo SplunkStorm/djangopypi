@@ -5,7 +5,7 @@ from django.db.models.query import Q
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.forms.models import inlineformset_factory
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden, HttpResponse
 from django.views.generic import list_detail, create_update
 from django.shortcuts import get_object_or_404, render_to_response
 from django.template import RequestContext
@@ -16,11 +16,12 @@ from djangopypi.decorators import user_maintains_package
 from djangopypi.models import Package, Release, Distribution
 from djangopypi.http import login_basic_auth, HttpResponseUnauthorized
 from djangopypi.forms import ReleaseForm, DistributionUploadForm
+from djangopypi.views.packages import user_packages
 
 from sendfile import sendfile
 
-
 def user_releases(user):
+    """Return a queryset of which releases a user has permissions to view"""
     if user.is_superuser:
         return Release.objects.all()
     else:
@@ -29,6 +30,13 @@ def user_releases(user):
             Q(package__allow_authenticated=True) |
             Q(package__download_permissions__in=user.groups.all())
         ).distinct()
+
+def anonymous_releases():
+    """A queryset of which releases any site visitor can access"""
+    return Release.objects.filter(
+        package__download_permissions=None,
+        package__allow_authenticated=False,
+    )
 
 def index(request, **kwargs):
     if not request.user.is_authenticated():
@@ -221,27 +229,31 @@ def upload_file(request, package, version, **kwargs):
 def bootstrap_index(request):
     return list_detail.object_list(
         request,
-        queryset=Release.objects.filter(
-            package__download_permissions=None,
-            package__allow_authenticated=False,
-        ),
+        queryset=anonymous_releases(),
         template_name='djangopypi/bootstrap.html',
     )
 
 def download_dist(request, path, document_root=None, show_indexes=False):
     log = logging.getLogger(__name__)
 
-    can_serve = False
-    # Find the related release, and its related package.
-    dist = get_object_or_404(Distribution, content=path)
-    # Get a list of the groups that can download this package
-    package = dist.release.package
-    download_permissions = package.download_permissions.all()
-    username = 'Anonymous'
+    def serve(username, dist):
+        log.info('user: %s package: %s downloaded' % (username, package.name))
+        return sendfile(request, dist.content.path, attachment=True)
 
-    if download_permissions.count() == 0 and package.allow_authenticated == False:
+    def forbidden(username, dist):
+        error = 'user: %s package: %s download permission denied' % (
+            username,
+            package.name
+        )
+        log.info(error)
+        return HttpResponseForbidden(error)
+
+    dist = get_object_or_404(Distribution, content=path)
+    package = dist.release.package
+
+    if package.download_permissions.count() == 0 and not package.allow_authenticated:
         # If no download permissions, anon users can access the package
-        can_serve = True
+        return serve('Anonymous', dist)
     else:
         # Check authentication, falling-back to basic auth if necessary
         if request.user.is_authenticated():
@@ -249,27 +261,10 @@ def download_dist(request, path, document_root=None, show_indexes=False):
         else:
             user = login_basic_auth(request)
 
-        if user is None:
+        if user is None: # Specify 401 and await creds on next request
             return HttpResponseUnauthorized('pypi')
         else:
-            # If authenticated, check that the user's primary group is
-            # in the package's download_permissions
-            user_groups = user.groups.all()
-            if len(user_groups) > 0:
-                if user_groups[0] in download_permissions or \
-                   user_groups[0] in package.owners.all() or \
-                   user.is_superuser:
-                    username = user.username
-                    can_serve = True
-
-    if can_serve:
-        log.info('user: %s package: %s downloaded' % (username, package.name))
-        return sendfile(request, dist.content.path, attachment=True)
-    else:
-        log.info('user: %s package: %s download permission denied' % (
-            username, package.name
-        ))
-        return HttpResponseForbidden(
-            'You are not authorised to download %s' % package.name
-        )
-
+            if package in user_packages(user):
+                return serve(user.username, dist)
+            else:
+                return forbidden(user.username, dist)
