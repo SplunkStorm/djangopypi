@@ -1,9 +1,13 @@
+import logging
+
 from django.http import HttpResponseNotAllowed
 
 from djangopypi import conf
 from djangopypi.decorators import csrf_exempt
 from djangopypi.http import parse_distutils_request
 from djangopypi.views.xmlrpc import parse_xmlrpc_request
+
+logger = logging.getLogger(__name__)
 
 @csrf_exempt
 def root(request, fallback_view=None, **kwargs):
@@ -28,7 +32,7 @@ def root(request, fallback_view=None, **kwargs):
         return fallback_view(request, **kwargs)
     
     if not action in conf.ACTION_VIEWS:
-        print 'unknown action: %s' % (action,)
+        logger.info('unknown action: %s' % (action,))
         return HttpResponseNotAllowed(conf.ACTION_VIEW.keys())
     
     view_func = conf.ACTION_VIEWS[action]

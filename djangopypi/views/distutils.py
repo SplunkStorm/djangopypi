@@ -211,7 +211,7 @@ def register_or_upload(request):
                                                md5_digest=md5_digest)
     except Exception, e:
         transaction.rollback()
-        print str(e)
+        raise
     
     transaction.commit()
     logger.info('user:%s package:%s version:%s uploaded:%s' % (username, package.name, version, datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')))

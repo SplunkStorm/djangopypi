@@ -3,6 +3,9 @@ from django.utils.translation import ugettext_lazy as _
 
 from djangopypi import conf
 from djangopypi.models import Package, Classifier, Release, Distribution
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SimplePackageSearchForm(forms.Form):
     q = forms.CharField(max_length=255)
@@ -26,7 +29,7 @@ class DistributionUploadForm(forms.ModelForm):
                                        filename=content.name)
         
         if not storage.exists(name):
-            print '%s does not exist' % (name,)
+            logger.critical('%s does not exist' % (name,))
             return content
         
         if conf.ALLOW_VERSION_OVERWRITE:
