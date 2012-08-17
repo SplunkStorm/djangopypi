@@ -10,7 +10,7 @@ urlpatterns = patterns("djangopypi.views",
     url(r'^bootstrap/$', 'releases.bootstrap_index', name='djangopypi-bootstrap-index-simple'),
     url(r'^search/$','packages.search',name='djangopypi-search'),
     url(r'^pypi/$', 'root', name='djangopypi-release-index'),
-    #url(r'^rss/$', ReleaseFeed(), name='djangopypi-rss'),
+    url(r'^rss/$', ReleaseFeed(), name='djangopypi-rss'),
     
     url(r'^simple/(?P<package>[\w\d_\.\-]+)/$','packages.simple_details',
         name='djangopypi-package-simple'),
